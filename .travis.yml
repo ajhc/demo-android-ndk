@@ -1,0 +1,26 @@
+before_install:
+  - date
+  - uname -a
+  - ulimit -a
+  - cat /proc/cpuinfo
+  - cat /proc/meminfo
+  - cat /etc/apt/sources.list
+  - git fetch --tags
+  - sudo apt-get -qq update
+  - sudo apt-get -qq -y install haskell-platform gcc make openjdk-7-jdk ant
+  - wget http://files.metasepi.org/ajhc/android-sdk_r15-linux.tgz
+  - wget http://files.metasepi.org/ajhc/android-ndk-r9-linux-x86_64.tar.bz2
+  - tar xf android-sdk_r15-linux.tgz
+  - mv android-sdk-linux android-sdk
+  - tar xf android-ndk-r9-linux-x86_64.tar.bz2
+  - mv android-ndk-r9 android-ndk
+  - export PATH=`pwd`/android-ndk:`pwd`/android-sdk/sdk/tools:`pwd`/android-sdk/sdk/platform-tools:$PATH
+  - echo $PATH
+  - git --version
+  - ghc --version
+  - adb version
+  - ndk-build --version
+script:
+  - make
+after_script:
+  - date
