@@ -3,7 +3,7 @@ APPNAME = native-activity
 all: bin/$(APPNAME)-debug.apk
 
 bin/$(APPNAME)-debug.apk:
-	android update project -p ./ -n $(APPNAME) -t 1
+	android update project -p ./ -n $(APPNAME) -t android-10
 	ndk-build
 	ant debug
 
