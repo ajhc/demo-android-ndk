@@ -1,5 +1,4 @@
-Demo Ajhc application with Android NDK
-======================================
+# Demo Ajhc apps with Android NDK [![Build Status](https://travis-ci.org/ajhc/demo-android-ndk.png)](https://travis-ci.org/ajhc/demo-android-ndk)
 
 The demo needs Ajhc 0.8.0.8 or later.
 
