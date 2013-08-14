@@ -16,14 +16,16 @@ Download android SDK and NDK on following links.
 * http://developer.android.com/sdk/index.html
 * http://developer.android.com/tools/sdk/ndk/index.html
 
+    $ wget http://dl.google.com/android/android-sdk_r15-linux.tgz
+    $ wget http://dl.google.com/android/ndk/android-ndk-r9-linux-x86_64.tar.bz2
+
 Unpack them and setting PATH for SDK/NDK.
 
     $ cd $HOME
-    $ tar xf android-sdk_r15-linux.tgz
+    $ tar xf android-sdk_r22-linux.tgz
     $ tar xf android-ndk-r9-linux-x86_64.tar.bz2
-    $ mv android-sdk-linux android-sdk
     $ mv android-ndk-r9 android-ndk
-    $ export PATH=$HOME/android-ndk:$HOME/android-sdk/sdk/tools:$HOME/android-sdk/sdk/platform-tools:$PATH
+    $ export PATH=$HOME/android-ndk:$HOME/android-sdk-linux/sdk/tools:$HOME/android-sdk-linux/sdk/platform-tools:$PATH
 
 ### Install Ajhc
 
