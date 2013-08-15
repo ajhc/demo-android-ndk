@@ -254,6 +254,16 @@ void android_main(struct android_app* state) {
 
     // loop waiting for stuff to do.
 
+    { // Run Haskell code.
+        int hsargc = 1;
+        char *hsargv = "q";
+        char **hsargvp = &hsargv;
+
+        hs_init(&hsargc, &hsargvp);
+        _amain();
+        // hs_exit();
+    }
+
     while (1) {
         // Read all pending events.
         int ident;
