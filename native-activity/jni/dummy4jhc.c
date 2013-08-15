@@ -4,6 +4,10 @@ int jhc_printf_stderr(const char *format, ...) {
 	return 0;
 }
 
+int jhc_fputs_stderr(const char *s) {
+	return 0;
+}
+
 int jhc_fflush_stdout() {
 	return 0;
 }
