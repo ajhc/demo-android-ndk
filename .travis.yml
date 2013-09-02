@@ -7,9 +7,13 @@ before_install:
   - cat /etc/apt/sources.list
   - git fetch --tags
   - sudo apt-get -qq update
-  - sudo apt-get -qq -y install openjdk-7-jdk ant lib32z1-dev lib32stdc++6 make locales libwww-perl haskell-platform cpphs gcc wget libghc-temporary-dev libghc-haskeline-dev libghc-utf8-string-dev libghc-hssyck-dev libghc-test-framework-th-dev libghc-test-framework-hunit-dev libghc-test-framework-quickcheck2-dev libghc-uniplate-dev
+  - sudo apt-get -qq -y install openjdk-7-jdk ant lib32z1-dev lib32stdc++6
+  - sudo apt-get -qq -y install make locales libwww-perl haskell-platform cpphs gcc wget
+  - sudo apt-get -qq -y install libghc-temporary-dev libghc-haskeline-dev libghc-utf8-string-dev libghc-hssyck-dev libghc-test-framework-th-dev libghc-test-framework-hunit-dev libghc-test-framework-quickcheck2-dev libghc-uniplate-dev
   - cabal update
-  - cabal install ajhc
+  - cabal install derive
+  - git clone https://github.com/ajhc/ajhc.git
+  - cd ajhc && autoreconf -i && ./configure && make install
   - export PATH=$HOME/.cabal/bin:$PATH
   - wget http://files.metasepi.org/ajhc/android-sdk_r22.0.1-linux_4travis.tar.bz2
   - wget http://dl.google.com/android/ndk/android-ndk-r9-linux-x86_64.tar.bz2
