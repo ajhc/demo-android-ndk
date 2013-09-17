@@ -13,7 +13,7 @@ bin/$(APPNAME)-debug.apk: $(HSDIR)/hs_main.c
 
 $(HSDIR)/hs_main.c: hs_src/Main.hs
 	mkdir -p $(HSDIR)
-	ajhc -fffi -fpthread --tdir=$(HSDIR) -C -o $@ $<
+	ajhc -fffi -fpthread --include=hs_src --tdir=$(HSDIR) -C -o $@ $<
 
 clean:
 	rm -rf bin libs obj $(HSDIR)
