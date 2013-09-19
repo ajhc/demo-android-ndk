@@ -140,3 +140,26 @@ instance Storable AndroidApp where
                         , appSavedState     = savedState
                         , appSavedStateSize = savedStateSize
                         , appWindow         = window }
+
+
+newtype {-# CTYPE "AInputEvent" #-} AInputEvent = AInputEvent ()
+foreign import primitive "const.AINPUT_EVENT_TYPE_MOTION" c_AINPUT_EVENT_TYPE_MOTION :: Int
+foreign import ccall "c_extern.h AInputEvent_getType" c_AInputEvent_getType :: Ptr AInputEvent -> IO Int
+foreign import ccall "c_extern.h AMotionEvent_getX" c_AMotionEvent_getX :: Ptr AInputEvent -> CSize -> IO Float
+foreign import ccall "c_extern.h AMotionEvent_getY" c_AMotionEvent_getY :: Ptr AInputEvent -> CSize -> IO Float
+
+engineHandleInput :: Ptr AndroidApp -> Ptr AInputEvent -> IO Int
+engineHandleInput app event = do
+  t <- c_AInputEvent_getType event
+  if t /= c_AINPUT_EVENT_TYPE_MOTION then return 0
+    else do apphs <- peek app
+            let eng = castPtr $ appUserData apphs
+            enghs <- peek eng
+            let stat = engState enghs
+            x <- c_AMotionEvent_getX event 0
+            y <- c_AMotionEvent_getY event 0
+            poke eng $ enghs { engAnimating = 1
+                             , engState = stat { sStateX = truncate x,  sStateY = truncate y } }
+            return 1
+
+foreign export ccall "engineHandleInput" engineHandleInput :: Ptr AndroidApp -> Ptr AInputEvent -> IO Int
