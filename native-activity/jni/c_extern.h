@@ -39,4 +39,8 @@ struct engine {
     struct saved_state state;
 };
 
+int engine_init_display(struct engine* engine);
+void engine_draw_frame(struct engine* engine);
+void engine_term_display(struct engine* engine);
+
 #endif /* _C_EXTERN_H */

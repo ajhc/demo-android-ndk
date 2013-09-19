@@ -1,8 +1,10 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
 module AndroidNdk where
+import Control.Monad
 import Foreign.Storable
 import Foreign.C.Types
 import Foreign.Ptr
+import Foreign.Marshal.Alloc
 
 -- struct saved_state
 foreign import primitive "const.sizeof(struct saved_state)" sizeOf_SavedState :: Int
@@ -97,8 +99,8 @@ foreign import primitive "const.offsetof(struct android_app, window)" offsetOf_A
 
 newtype {-# CTYPE "ANativeWindow" #-} ANativeWindow = ANativeWindow ()
 
-data AndroidApp = AndroidApp { appUserData       :: Ptr ()
-                             , appSavedState     :: Ptr ()
+data AndroidApp = AndroidApp { appUserData       :: Ptr AndroidEngine
+                             , appSavedState     :: Ptr SavedState
                              , appSavedStateSize :: CSize
                              , appWindow         :: Ptr ANativeWindow }
 instance Storable AndroidApp where
@@ -140,3 +142,52 @@ engineHandleInput eng event = do
             return 1
 
 foreign export ccall "engineHandleInput" engineHandleInput :: Ptr AndroidEngine -> Ptr AInputEvent -> IO Int
+
+
+foreign import primitive "const.APP_CMD_SAVE_STATE" c_APP_CMD_SAVE_STATE :: Int
+foreign import primitive "const.APP_CMD_INIT_WINDOW" c_APP_CMD_INIT_WINDOW :: Int
+foreign import primitive "const.APP_CMD_TERM_WINDOW" c_APP_CMD_TERM_WINDOW :: Int
+foreign import primitive "const.APP_CMD_GAINED_FOCUS" c_APP_CMD_GAINED_FOCUS :: Int
+foreign import primitive "const.APP_CMD_LOST_FOCUS" c_APP_CMD_LOST_FOCUS :: Int
+
+foreign import ccall "c_extern.h engine_init_display" c_engine_init_display :: Ptr AndroidEngine -> IO Int
+foreign import ccall "c_extern.h engine_draw_frame" c_engine_draw_frame :: Ptr AndroidEngine -> IO ()
+foreign import ccall "c_extern.h engine_term_display" c_engine_term_display :: Ptr AndroidEngine -> IO ()
+foreign import ccall "c_extern.h ASensorEventQueue_enableSensor" c_ASensorEventQueue_enableSensor :: Ptr ASensorEventQueue -> Ptr ASensor -> IO Int
+foreign import ccall "c_extern.h ASensorEventQueue_setEventRate" c_ASensorEventQueue_setEventRate :: Ptr ASensorEventQueue -> Ptr ASensor -> Int -> IO Int
+
+
+foreign import ccall "c_extern.h ASensorEventQueue_disableSensor" c_ASensorEventQueue_disableSensor :: Ptr ASensorEventQueue -> Ptr ASensor -> IO Int
+
+engineHandleCmd :: Ptr AndroidEngine -> Int -> IO ()
+engineHandleCmd eng cmd
+  | cmd == c_APP_CMD_SAVE_STATE = do enghs <- peek eng
+                                     let app = engApp enghs
+                                     apphs <- peek app
+                                     sstat <- malloc
+                                     poke sstat $ engState enghs
+                                     let apphs' = apphs { appSavedState = sstat
+                                                        , appSavedStateSize = toEnum $ sizeOf $ engState enghs }
+                                     poke app apphs'
+  | cmd == c_APP_CMD_INIT_WINDOW = do enghs <- peek eng
+                                      let app = engApp enghs
+                                      apphs <- peek app
+                                      when (appWindow apphs /= nullPtr) $ do
+                                        c_engine_init_display eng
+                                        c_engine_draw_frame eng
+  | cmd == c_APP_CMD_TERM_WINDOW = c_engine_term_display eng
+  | cmd == c_APP_CMD_GAINED_FOCUS = do enghs <- peek eng
+                                       when (engAccelerometerSensor enghs /= nullPtr) $ do
+                                         c_ASensorEventQueue_enableSensor (engSensorEventQueue enghs) (engAccelerometerSensor enghs)
+                                         c_ASensorEventQueue_setEventRate (engSensorEventQueue enghs) (engAccelerometerSensor enghs) ((1000 `div` 60) * 1000)
+                                         return ()
+  | cmd == c_APP_CMD_LOST_FOCUS = do enghs <- peek eng
+                                     when (engAccelerometerSensor enghs /= nullPtr) $ do
+                                       c_ASensorEventQueue_disableSensor (engSensorEventQueue enghs) (engAccelerometerSensor enghs)
+                                       return ()
+                                     let enghs' = enghs { engAnimating = 0 }
+                                     poke eng enghs'
+                                     c_engine_draw_frame eng
+engineHandleCmd _ _ = return ()
+
+foreign export ccall "engineHandleCmd" engineHandleCmd :: Ptr AndroidEngine -> Int -> IO ()

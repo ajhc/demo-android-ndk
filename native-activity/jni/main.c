@@ -24,7 +24,7 @@
 /**
  * Initialize an EGL context for the current display.
  */
-static int engine_init_display(struct engine* engine) {
+int engine_init_display(struct engine* engine) {
     // initialize OpenGL ES and EGL
 
     /*
@@ -92,7 +92,7 @@ static int engine_init_display(struct engine* engine) {
 /**
  * Just the current frame in the display.
  */
-static void engine_draw_frame(struct engine* engine) {
+void engine_draw_frame(struct engine* engine) {
     if (engine->display == NULL) {
         // No display.
         return;
@@ -109,7 +109,7 @@ static void engine_draw_frame(struct engine* engine) {
 /**
  * Tear down the EGL context currently associated with the display.
  */
-static void engine_term_display(struct engine* engine) {
+void engine_term_display(struct engine* engine) {
     if (engine->display != EGL_NO_DISPLAY) {
         eglMakeCurrent(engine->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
         if (engine->context != EGL_NO_CONTEXT) {
@@ -142,7 +142,7 @@ static int32_t engine_handle_input(struct android_app* app, AInputEvent* event) 
 }
 #else
 // Call Haskell code
-int32_t engineHandleInput(struct engine* engine, AInputEvent* event);
+extern int32_t engineHandleInput(struct engine* engine, AInputEvent* event);
 
 static int32_t engine_handle_input(struct android_app* app, AInputEvent* event) {
     struct engine* engine = (struct engine*)app->userData;
@@ -153,6 +153,7 @@ static int32_t engine_handle_input(struct android_app* app, AInputEvent* event) 
 /**
  * Process the next main command.
  */
+#if 0
 static void engine_handle_cmd(struct android_app* app, int32_t cmd) {
     struct engine* engine = (struct engine*)app->userData;
     switch (cmd) {
@@ -196,6 +197,14 @@ static void engine_handle_cmd(struct android_app* app, int32_t cmd) {
             break;
     }
 }
+#else
+extern void engineHandleCmd(struct engine* engine, int32_t cmd);
+
+static void engine_handle_cmd(struct android_app* app, int32_t cmd) {
+    struct engine* engine = (struct engine*)app->userData;
+    engineHandleCmd(engine, cmd);
+}
+#endif
 
 /**
  * This is the main entry point of a native application that is using
