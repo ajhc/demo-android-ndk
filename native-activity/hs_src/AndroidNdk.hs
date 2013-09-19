@@ -50,24 +50,11 @@ newtype {-# CTYPE "EGLDisplay" #-}        EGLDisplay        = EGLDisplay ()
 newtype {-# CTYPE "EGLSurface" #-}        EGLSurface        = EGLSurface ()
 newtype {-# CTYPE "EGLContext" #-}        EGLContext        = EGLContext ()
 
-instance Storable EGLDisplay where
-  sizeOf    = const sizeOf_EGLDisplay
-  alignment = sizeOf
-instance Storable EGLSurface where
-  sizeOf    = const sizeOf_EGLSurface
-  alignment = sizeOf
-instance Storable EGLContext where
-  sizeOf    = const sizeOf_EGLContext
-  alignment = sizeOf
-
 data AndroidEngine = AndroidEngine { engApp                 :: Ptr AndroidApp
                                    , engSensorManager       :: Ptr ASensorManager
                                    , engAccelerometerSensor :: Ptr ASensor
                                    , engSensorEventQueue    :: Ptr ASensorEventQueue
                                    , engAnimating           :: Int
-                                   , engDisplay             :: EGLDisplay
-                                   , engSurface             :: EGLSurface
-                                   , engContext             :: EGLContext
                                    , engWidth               :: Int
                                    , engHeight              :: Int
                                    , engState               :: SavedState }
@@ -80,9 +67,6 @@ instance Storable AndroidEngine where
     pokeByteOff p offsetOf_Engine_accelerometerSensor $ engAccelerometerSensor eng
     pokeByteOff p offsetOf_Engine_sensorEventQueue    $ engSensorEventQueue eng
     pokeByteOff p offsetOf_Engine_animating           $ engAnimating eng
-    pokeByteOff p offsetOf_Engine_display             $ engDisplay eng
-    pokeByteOff p offsetOf_Engine_surface             $ engSurface eng
-    pokeByteOff p offsetOf_Engine_context             $ engContext eng
     pokeByteOff p offsetOf_Engine_width               $ engWidth eng
     pokeByteOff p offsetOf_Engine_height              $ engHeight eng
     pokeByteOff p offsetOf_Engine_state               $ engState eng
@@ -92,9 +76,6 @@ instance Storable AndroidEngine where
     accelerometerSensor <- peekByteOff p offsetOf_Engine_accelerometerSensor
     sensorEventQueue    <- peekByteOff p offsetOf_Engine_sensorEventQueue
     animating           <- peekByteOff p offsetOf_Engine_animating
-    display             <- peekByteOff p offsetOf_Engine_display
-    surface             <- peekByteOff p offsetOf_Engine_surface
-    context             <- peekByteOff p offsetOf_Engine_context
     width               <- peekByteOff p offsetOf_Engine_width
     height              <- peekByteOff p offsetOf_Engine_height
     state               <- peekByteOff p offsetOf_Engine_state
@@ -103,9 +84,6 @@ instance Storable AndroidEngine where
                            , engAccelerometerSensor = accelerometerSensor
                            , engSensorEventQueue    = sensorEventQueue
                            , engAnimating           = animating
-                           , engDisplay             = display
-                           , engSurface             = surface
-                           , engContext             = context
                            , engWidth               = width
                            , engHeight              = height
                            , engState               = state }
@@ -148,18 +126,17 @@ foreign import ccall "c_extern.h AInputEvent_getType" c_AInputEvent_getType :: P
 foreign import ccall "c_extern.h AMotionEvent_getX" c_AMotionEvent_getX :: Ptr AInputEvent -> CSize -> IO Float
 foreign import ccall "c_extern.h AMotionEvent_getY" c_AMotionEvent_getY :: Ptr AInputEvent -> CSize -> IO Float
 
-engineHandleInput :: Ptr AndroidApp -> Ptr AInputEvent -> IO Int
-engineHandleInput app event = do
+engineHandleInput :: Ptr AndroidEngine -> Ptr AInputEvent -> IO Int
+engineHandleInput eng event = do
   t <- c_AInputEvent_getType event
   if t /= c_AINPUT_EVENT_TYPE_MOTION then return 0
-    else do apphs <- peek app
-            let eng = castPtr $ appUserData apphs
-            enghs <- peek eng
+    else do enghs <- peek eng
             let stat = engState enghs
             x <- c_AMotionEvent_getX event 0
             y <- c_AMotionEvent_getY event 0
-            poke eng $ enghs { engAnimating = 1
-                             , engState = stat { sStateX = truncate x,  sStateY = truncate y } }
+            let enghs' = enghs { engAnimating = 1
+                               , engState = stat { sStateX = truncate x,  sStateY = truncate y } }
+            poke eng enghs'
             return 1
 
-foreign export ccall "engineHandleInput" engineHandleInput :: Ptr AndroidApp -> Ptr AInputEvent -> IO Int
+foreign export ccall "engineHandleInput" engineHandleInput :: Ptr AndroidEngine -> Ptr AInputEvent -> IO Int

@@ -129,6 +129,7 @@ static void engine_term_display(struct engine* engine) {
 /**
  * Process the next input event.
  */
+#if 0
 static int32_t engine_handle_input(struct android_app* app, AInputEvent* event) {
     struct engine* engine = (struct engine*)app->userData;
     if (AInputEvent_getType(event) == AINPUT_EVENT_TYPE_MOTION) {
@@ -139,6 +140,15 @@ static int32_t engine_handle_input(struct android_app* app, AInputEvent* event) 
     }
     return 0;
 }
+#else
+// Call Haskell code
+int32_t engineHandleInput(struct engine* engine, AInputEvent* event);
+
+static int32_t engine_handle_input(struct android_app* app, AInputEvent* event) {
+    struct engine* engine = (struct engine*)app->userData;
+    return engineHandleInput(engine, event);
+}
+#endif
 
 /**
  * Process the next main command.
@@ -198,6 +208,14 @@ void android_main(struct android_app* state) {
     // Make sure glue isn't stripped.
     app_dummy();
 
+    { // Init Haskell code.
+        int hsargc = 1;
+        char *hsargv = "q";
+        char **hsargvp = &hsargv;
+
+        hs_init(&hsargc, &hsargvp);
+    }
+
     memset(&engine, 0, sizeof(engine));
     state->userData = &engine;
     state->onAppCmd = engine_handle_cmd;
@@ -216,17 +234,12 @@ void android_main(struct android_app* state) {
         engine.state = *(struct saved_state*)state->savedState;
     }
 
-    // loop waiting for stuff to do.
-
     { // Run Haskell code.
-        int hsargc = 1;
-        char *hsargv = "q";
-        char **hsargvp = &hsargv;
-
-        hs_init(&hsargc, &hsargvp);
         _amain();
         // hs_exit();
     }
+
+    // loop waiting for stuff to do.
 
     while (1) {
         // Read all pending events.

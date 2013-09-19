@@ -1,6 +1,9 @@
 APPNAME = native-activity
 ANDROID_TARGET = android-10
 
+CDIR = jni
+CSRC = $(wildcard $(CDIR)/*.c $(CDIR)/*.h)
+
 HSBUILD = hs_build
 HSDIR = hs_src
 HSSRC = $(wildcard $(HSDIR)/*.hs $(HSDIR)/*/*.hs $(HSDIR)/*/*/*.hs $(HSDIR)/*/*/*/*.hs)
@@ -8,9 +11,9 @@ HSSRC = $(wildcard $(HSDIR)/*.hs $(HSDIR)/*/*.hs $(HSDIR)/*/*/*.hs $(HSDIR)/*/*/
 .PHONY: all clean install
 all: bin/$(APPNAME)-debug.apk
 
-bin/$(APPNAME)-debug.apk: $(HSBUILD)/hs_main.c
+bin/$(APPNAME)-debug.apk: $(HSBUILD)/hs_main.c $(CSRC)
 	android update project -p ./ -n $(APPNAME) -t $(ANDROID_TARGET)
-	ndk-build
+	ndk-build NDK_DEBUG=1
 	ant debug
 
 $(HSBUILD)/hs_main.c: $(HSSRC)
