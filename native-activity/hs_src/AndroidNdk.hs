@@ -113,16 +113,30 @@ instance Storable AndroidEngine where
 -- struct android_app
 foreign import primitive "const.sizeof(struct android_app)" sizeOf_AndroidApp :: Int
 foreign import primitive "const.offsetof(struct android_app, userData)" offsetOf_AndroidApp_appUserData :: Int
+foreign import primitive "const.offsetof(struct android_app, savedState)" offsetOf_AndroidApp_appSavedState :: Int
+foreign import primitive "const.offsetof(struct android_app, savedStateSize)" offsetOf_AndroidApp_appSavedStateSize :: Int
+foreign import primitive "const.offsetof(struct android_app, window)" offsetOf_AndroidApp_appWindow :: Int
+
+newtype {-# CTYPE "ANativeWindow" #-} ANativeWindow = ANativeWindow ()
 
 data AndroidApp = AndroidApp { appUserData       :: Ptr ()
                              , appSavedState     :: Ptr ()
                              , appSavedStateSize :: CSize
-                             , appWindow         :: Ptr () }
+                             , appWindow         :: Ptr ANativeWindow }
 instance Storable AndroidApp where
   sizeOf    = const sizeOf_AndroidApp
   alignment = sizeOf
   poke p app = do
-    pokeByteOff p offsetOf_AndroidApp_appUserData $ appUserData app
+    pokeByteOff p offsetOf_AndroidApp_appUserData       $ appUserData app
+    pokeByteOff p offsetOf_AndroidApp_appSavedState     $ appSavedState app
+    pokeByteOff p offsetOf_AndroidApp_appSavedStateSize $ appSavedStateSize app
+    pokeByteOff p offsetOf_AndroidApp_appWindow         $ appWindow app
   peek p = do
-    peekByteOff p offsetOf_AndroidApp_appUserData
-    -- return
+    userData       <- peekByteOff p offsetOf_AndroidApp_appUserData
+    savedState     <- peekByteOff p offsetOf_AndroidApp_appSavedState
+    savedStateSize <- peekByteOff p offsetOf_AndroidApp_appSavedStateSize
+    window         <- peekByteOff p offsetOf_AndroidApp_appWindow
+    return $ AndroidApp { appUserData       = userData
+                        , appSavedState     = savedState
+                        , appSavedStateSize = savedStateSize
+                        , appWindow         = window }
