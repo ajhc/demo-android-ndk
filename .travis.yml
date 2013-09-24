@@ -6,7 +6,6 @@ before_install:
   - cat /proc/meminfo
   - cat /etc/apt/sources.list
   - git fetch --tags
-  - export TRAVIS_TOPDIR=`pwd`
   - sudo apt-get -qq update
   - sudo apt-get -qq -y install openjdk-7-jdk ant lib32z1-dev lib32stdc++6
   - sudo apt-get -qq -y install make locales libwww-perl haskell-platform cpphs gcc wget
@@ -30,7 +29,7 @@ before_install:
   - ndk-build --version
   - android list
 script:
-  - cd $TRAVIS_TOPDIR
+  - cd $TRAVIS_BUILD_DIR
   - make
 after_script:
   - date
