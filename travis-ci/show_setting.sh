@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+uname -a
+ulimit -a
+cat /proc/cpuinfo
+cat /proc/meminfo
+cat /etc/apt/sources.list
+git --version
+ghc --version
+ajhc --version
+gcc --version
+ndk-build --version
+android list
