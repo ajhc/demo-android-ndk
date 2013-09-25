@@ -1,6 +1,7 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
 module AndroidNdk where
 import Control.Monad
+import Data.Word
 import Foreign.Storable
 import Foreign.C.Types
 import Foreign.Ptr
@@ -48,9 +49,12 @@ foreign import primitive "const.sizeof(EGLContext)" sizeOf_EGLContext :: Int
 newtype {-# CTYPE "ASensorManager" #-}    ASensorManager    = ASensorManager ()
 newtype {-# CTYPE "ASensor" #-}           ASensor           = ASensor ()
 newtype {-# CTYPE "ASensorEventQueue" #-} ASensorEventQueue = ASensorEventQueue ()
-newtype {-# CTYPE "EGLDisplay" #-}        EGLDisplay        = EGLDisplay ()
-newtype {-# CTYPE "EGLSurface" #-}        EGLSurface        = EGLSurface ()
-newtype {-# CTYPE "EGLContext" #-}        EGLContext        = EGLContext ()
+type EGLDisplay = Ptr () -- xxx unsafe
+type EGLSurface = Ptr ()
+type EGLContext = Ptr ()
+c_EGL_NO_DISPLAY = nullPtr
+c_EGL_NO_SURFACE = nullPtr
+c_EGL_NO_CONTEXT = nullPtr
 
 data AndroidEngine = AndroidEngine { engApp                 :: Ptr AndroidApp
                                    , engSensorManager       :: Ptr ASensorManager
@@ -59,7 +63,10 @@ data AndroidEngine = AndroidEngine { engApp                 :: Ptr AndroidApp
                                    , engAnimating           :: Int
                                    , engWidth               :: Int
                                    , engHeight              :: Int
-                                   , engState               :: SavedState }
+                                   , engState               :: SavedState
+                                   , engEglDisplay          :: EGLDisplay
+                                   , engEglSurface          :: EGLSurface
+                                   , engEglContext          :: EGLContext }
 instance Storable AndroidEngine where
   sizeOf    = const sizeOf_Engine
   alignment = sizeOf
@@ -72,6 +79,9 @@ instance Storable AndroidEngine where
     pokeByteOff p offsetOf_Engine_width               $ engWidth eng
     pokeByteOff p offsetOf_Engine_height              $ engHeight eng
     pokeByteOff p offsetOf_Engine_state               $ engState eng
+    pokeByteOff p offsetOf_Engine_display             $ engEglDisplay eng
+    pokeByteOff p offsetOf_Engine_surface             $ engEglSurface eng
+    pokeByteOff p offsetOf_Engine_context             $ engEglContext eng
   peek p = do
     app                 <- peekByteOff p offsetOf_Engine_app
     sensorManager       <- peekByteOff p offsetOf_Engine_sensorManager
@@ -81,6 +91,9 @@ instance Storable AndroidEngine where
     width               <- peekByteOff p offsetOf_Engine_width
     height              <- peekByteOff p offsetOf_Engine_height
     state               <- peekByteOff p offsetOf_Engine_state
+    eglDisp             <- peekByteOff p offsetOf_Engine_display
+    eglSurf             <- peekByteOff p offsetOf_Engine_surface
+    eglCont             <- peekByteOff p offsetOf_Engine_context
     return $ AndroidEngine { engApp                 = app
                            , engSensorManager       = sensorManager
                            , engAccelerometerSensor = accelerometerSensor
@@ -88,7 +101,10 @@ instance Storable AndroidEngine where
                            , engAnimating           = animating
                            , engWidth               = width
                            , engHeight              = height
-                           , engState               = state }
+                           , engState               = state
+                           , engEglDisplay          = eglDisp
+                           , engEglSurface          = eglSurf
+                           , engEglContext          = eglCont }
 
 -- struct android_app
 foreign import primitive "const.sizeof(struct android_app)" sizeOf_AndroidApp :: Int
@@ -191,3 +207,30 @@ engineHandleCmd eng cmd
 engineHandleCmd _ _ = return ()
 
 foreign export ccall "engineHandleCmd" engineHandleCmd :: Ptr AndroidEngine -> Int -> IO ()
+
+
+-- EGL
+
+foreign import ccall "c_extern.h eglMakeCurrent" c_eglMakeCurrent :: EGLDisplay -> EGLSurface -> EGLSurface -> EGLContext -> IO Word32
+foreign import ccall "c_extern.h eglDestroyContext" c_eglDestroyContext :: EGLDisplay -> EGLContext -> IO Word32
+foreign import ccall "c_extern.h eglDestroySurface" c_eglDestroySurface :: EGLDisplay -> EGLSurface -> IO Word32
+foreign import ccall "c_extern.h eglTerminate" c_eglTerminate :: EGLDisplay -> IO Word32
+
+engineTermDisplay :: Ptr AndroidEngine -> IO ()
+engineTermDisplay eng = peek eng >>= go >>= poke eng
+  where go :: AndroidEngine -> IO AndroidEngine
+        go enghs = do
+          let disp = engEglDisplay enghs
+              cont = engEglContext enghs
+              surf = engEglSurface enghs
+          when (disp /= c_EGL_NO_DISPLAY) $ do
+            c_eglMakeCurrent disp c_EGL_NO_SURFACE c_EGL_NO_SURFACE c_EGL_NO_CONTEXT
+            when (cont /= c_EGL_NO_CONTEXT) (void $ c_eglDestroyContext disp cont)
+            when (surf /= c_EGL_NO_SURFACE) (void $ c_eglDestroySurface disp surf)
+            void $ c_eglTerminate disp
+          return $ enghs { engAnimating  = 0
+                         , engEglDisplay = c_EGL_NO_DISPLAY
+                         , engEglSurface = c_EGL_NO_SURFACE
+                         , engEglContext = c_EGL_NO_CONTEXT }
+
+foreign export ccall "engineTermDisplay" engineTermDisplay :: Ptr AndroidEngine -> IO ()
