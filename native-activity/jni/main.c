@@ -92,53 +92,23 @@ int engine_init_display(struct engine* engine) {
 /**
  * Just the current frame in the display.
  */
+extern void engineDrawFrame(struct engine* engine);
 void engine_draw_frame(struct engine* engine) {
-    if (engine->display == NULL) {
-        // No display.
-        return;
-    }
-
-    // Just fill the screen with a color.
-    glClearColor(((float)engine->state.x)/engine->width, engine->state.angle,
-            ((float)engine->state.y)/engine->height, 1);
-    glClear(GL_COLOR_BUFFER_BIT);
-
-    eglSwapBuffers(engine->display, engine->surface);
+	engineDrawFrame(engine);
 }
 
 /**
  * Tear down the EGL context currently associated with the display.
  */
-#if 0
-void engine_term_display(struct engine* engine) {
-    if (engine->display != EGL_NO_DISPLAY) {
-        eglMakeCurrent(engine->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-        if (engine->context != EGL_NO_CONTEXT) {
-            eglDestroyContext(engine->display, engine->context);
-        }
-        if (engine->surface != EGL_NO_SURFACE) {
-            eglDestroySurface(engine->display, engine->surface);
-        }
-        eglTerminate(engine->display);
-    }
-    engine->animating = 0;
-    engine->display = EGL_NO_DISPLAY;
-    engine->context = EGL_NO_CONTEXT;
-    engine->surface = EGL_NO_SURFACE;
-}
-#else
 extern void engineTermDisplay(struct engine* engine);
-
 void engine_term_display(struct engine* engine) {
 	engineTermDisplay(engine);
 }
-#endif
 
 /**
  * Process the next input event.
  */
 extern int32_t engineHandleInput(struct engine* engine, AInputEvent* event);
-
 static int32_t engine_handle_input(struct android_app* app, AInputEvent* event) {
     struct engine* engine = (struct engine*)app->userData;
     return engineHandleInput(engine, event);
@@ -148,7 +118,6 @@ static int32_t engine_handle_input(struct android_app* app, AInputEvent* event) 
  * Process the next main command.
  */
 extern void engineHandleCmd(struct engine* engine, int32_t cmd);
-
 static void engine_handle_cmd(struct android_app* app, int32_t cmd) {
     struct engine* engine = (struct engine*)app->userData;
     engineHandleCmd(engine, cmd);

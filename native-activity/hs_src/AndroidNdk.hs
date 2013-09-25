@@ -210,7 +210,7 @@ foreign export ccall "engineHandleCmd" engineHandleCmd :: Ptr AndroidEngine -> I
 
 
 -- EGL
-
+foreign import ccall "c_extern.h eglSwapBuffers" c_eglSwapBuffers :: EGLDisplay -> EGLSurface -> IO Word32
 foreign import ccall "c_extern.h eglMakeCurrent" c_eglMakeCurrent :: EGLDisplay -> EGLSurface -> EGLSurface -> EGLContext -> IO Word32
 foreign import ccall "c_extern.h eglDestroyContext" c_eglDestroyContext :: EGLDisplay -> EGLContext -> IO Word32
 foreign import ccall "c_extern.h eglDestroySurface" c_eglDestroySurface :: EGLDisplay -> EGLSurface -> IO Word32
@@ -234,3 +234,28 @@ engineTermDisplay eng = peek eng >>= go >>= poke eng
                          , engEglContext = c_EGL_NO_CONTEXT }
 
 foreign export ccall "engineTermDisplay" engineTermDisplay :: Ptr AndroidEngine -> IO ()
+
+
+-- OpenGL ES
+foreign import ccall "c_extern.h glClearColor" c_glClearColor :: Float -> Float -> Float -> Float -> IO ()
+foreign import ccall "c_extern.h glClear" c_glClear :: Word32 -> IO ()
+foreign import primitive "const.GL_COLOR_BUFFER_BIT" c_GL_COLOR_BUFFER_BIT :: Word32
+
+engineDrawFrame :: Ptr AndroidEngine -> IO ()
+engineDrawFrame eng = peek eng >>= go
+  where go :: AndroidEngine -> IO ()
+        go enghs = do
+          let disp  = engEglDisplay enghs
+              surf  = engEglSurface enghs
+              w     = fromIntegral $ engWidth enghs
+              h     = fromIntegral $ engHeight enghs
+              s     = engState enghs
+              x     = fromIntegral $ sStateX s
+              y     = fromIntegral $ sStateY s
+              angle = sStateAngle s
+          when (disp /= c_EGL_NO_DISPLAY) $ do
+            c_glClearColor (x/w) angle (y/h) 1.0
+            c_glClear c_GL_COLOR_BUFFER_BIT
+            void $ c_eglSwapBuffers disp surf
+
+foreign export ccall "engineDrawFrame" engineDrawFrame :: Ptr AndroidEngine -> IO ()
