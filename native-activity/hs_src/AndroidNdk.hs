@@ -51,9 +51,13 @@ foreign import primitive "const.sizeof(EGLContext)" sizeOf_EGLContext :: Int
 newtype {-# CTYPE "ASensorManager" #-}    ASensorManager    = ASensorManager ()
 newtype {-# CTYPE "ASensor" #-}           ASensor           = ASensor ()
 newtype {-# CTYPE "ASensorEventQueue" #-} ASensorEventQueue = ASensorEventQueue ()
+newtype {-# CTYPE "ALooper" #-}           ALooper           = ALooper ()
+type ALooper_callbackFunc = Ptr () -- xxx
 c_EGL_NO_DISPLAY = nullPtr
 c_EGL_NO_SURFACE = nullPtr
 c_EGL_NO_CONTEXT = nullPtr
+foreign import primitive "const.ASENSOR_TYPE_ACCELEROMETER" c_ASENSOR_TYPE_ACCELEROMETER :: Int
+foreign import primitive "const.LOOPER_ID_USER" c_LOOPER_ID_USER :: Int
 
 data AndroidEngine = AndroidEngine { engApp                 :: Ptr AndroidApp
                                    , engSensorManager       :: Ptr ASensorManager
@@ -125,6 +129,7 @@ foreign import primitive "const.offsetof(struct android_app, userData)" offsetOf
 foreign import primitive "const.offsetof(struct android_app, savedState)" offsetOf_AndroidApp_appSavedState :: Int
 foreign import primitive "const.offsetof(struct android_app, savedStateSize)" offsetOf_AndroidApp_appSavedStateSize :: Int
 foreign import primitive "const.offsetof(struct android_app, window)" offsetOf_AndroidApp_appWindow :: Int
+foreign import primitive "const.offsetof(struct android_app, looper)" offsetOf_AndroidApp_appLooper :: Int
 foreign import primitive "const.offsetof(struct android_app, onAppCmd)" offsetOf_AndroidApp_appOnAppCmd :: Int
 foreign import primitive "const.offsetof(struct android_app, onInputEvent)" offsetOf_AndroidApp_appOnInputEvent :: Int
 
@@ -134,6 +139,7 @@ data AndroidApp = AndroidApp { appUserData       :: Ptr AndroidEngine
                              , appSavedState     :: Ptr SavedState
                              , appSavedStateSize :: CSize
                              , appWindow         :: Ptr ANativeWindow
+                             , appLooper         :: Ptr ALooper
                              , appOnAppCmd       :: FunPtr (Ptr AndroidApp -> Int -> IO ())
                              , appOnInputEvent   :: FunPtr (Ptr AndroidApp -> Ptr AInputEvent -> IO Int) }
 instance Storable AndroidApp where
@@ -144,6 +150,7 @@ instance Storable AndroidApp where
     pokeByteOff p offsetOf_AndroidApp_appSavedState     $ appSavedState app
     pokeByteOff p offsetOf_AndroidApp_appSavedStateSize $ appSavedStateSize app
     pokeByteOff p offsetOf_AndroidApp_appWindow         $ appWindow app
+    pokeByteOff p offsetOf_AndroidApp_appLooper         $ appLooper app
     pokeByteOff p offsetOf_AndroidApp_appOnAppCmd       $ appOnAppCmd app
     pokeByteOff p offsetOf_AndroidApp_appOnInputEvent   $ appOnInputEvent app
   peek p = do
@@ -151,12 +158,14 @@ instance Storable AndroidApp where
     savedState     <- peekByteOff p offsetOf_AndroidApp_appSavedState
     savedStateSize <- peekByteOff p offsetOf_AndroidApp_appSavedStateSize
     window         <- peekByteOff p offsetOf_AndroidApp_appWindow
+    looper         <- peekByteOff p offsetOf_AndroidApp_appLooper
     onApp          <- peekByteOff p offsetOf_AndroidApp_appOnAppCmd
     onInput        <- peekByteOff p offsetOf_AndroidApp_appOnInputEvent
     return $ AndroidApp { appUserData       = userData
                         , appSavedState     = savedState
                         , appSavedStateSize = savedStateSize
                         , appWindow         = window
+                        , appLooper         = looper
                         , appOnAppCmd       = onApp
                         , appOnInputEvent   = onInput }
 
@@ -196,6 +205,9 @@ foreign import ccall "c_extern.h ASensorEventQueue_enableSensor" c_ASensorEventQ
 foreign import ccall "c_extern.h ASensorEventQueue_setEventRate" c_ASensorEventQueue_setEventRate :: Ptr ASensorEventQueue -> Ptr ASensor -> Int -> IO Int
 foreign import ccall "c_extern.h ANativeWindow_setBuffersGeometry" c_ANativeWindow_setBuffersGeometry :: Ptr ANativeWindow -> Int -> Int -> Int -> IO Int
 foreign import ccall "c_extern.h ASensorEventQueue_disableSensor" c_ASensorEventQueue_disableSensor :: Ptr ASensorEventQueue -> Ptr ASensor -> IO Int
+foreign import ccall "c_extern.h ASensorManager_getInstance" c_ASensorManager_getInstance :: IO (Ptr ASensorManager)
+foreign import ccall "c_extern.h ASensorManager_getDefaultSensor" c_ASensorManager_getDefaultSensor :: Ptr ASensorManager -> Int -> IO (Ptr ASensor)
+foreign import ccall "c_extern.h ASensorManager_createEventQueue" c_ASensorManager_createEventQueue :: Ptr ASensorManager -> Ptr ALooper -> Int -> ALooper_callbackFunc -> Ptr () -> IO (Ptr ASensorEventQueue)
 
 engineHandleCmd :: Ptr AndroidEngine -> Int -> IO ()
 engineHandleCmd eng cmd

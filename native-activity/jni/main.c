@@ -85,13 +85,6 @@ void android_main(struct android_app* state) {
 	struct engine *engine = state->userData;
 
 #if 1
-    // Prepare to monitor accelerometer
-    engine->sensorManager = ASensorManager_getInstance();
-    engine->accelerometerSensor = ASensorManager_getDefaultSensor(engine->sensorManager,
-            ASENSOR_TYPE_ACCELEROMETER);
-    engine->sensorEventQueue = ASensorManager_createEventQueue(engine->sensorManager,
-            state->looper, LOOPER_ID_USER, NULL, NULL);
-
     if (state->savedState != NULL) {
         // We are starting with a previous saved state; restore from it.
         engine->state = *(struct saved_state*)state->savedState;
