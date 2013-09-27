@@ -2,10 +2,12 @@
 module AndroidNdk where
 import Control.Monad
 import Data.Word
+import Data.Maybe
 import Foreign.Storable
 import Foreign.C.Types
 import Foreign.Ptr
 import Foreign.Marshal.Alloc
+import Foreign.Marshal.Array
 
 -- struct saved_state
 foreign import primitive "const.sizeof(struct saved_state)" sizeOf_SavedState :: Int
@@ -49,9 +51,6 @@ foreign import primitive "const.sizeof(EGLContext)" sizeOf_EGLContext :: Int
 newtype {-# CTYPE "ASensorManager" #-}    ASensorManager    = ASensorManager ()
 newtype {-# CTYPE "ASensor" #-}           ASensor           = ASensor ()
 newtype {-# CTYPE "ASensorEventQueue" #-} ASensorEventQueue = ASensorEventQueue ()
-type EGLDisplay = Ptr () -- xxx unsafe
-type EGLSurface = Ptr ()
-type EGLContext = Ptr ()
 c_EGL_NO_DISPLAY = nullPtr
 c_EGL_NO_SURFACE = nullPtr
 c_EGL_NO_CONTEXT = nullPtr
@@ -171,8 +170,7 @@ foreign import ccall "c_extern.h engine_draw_frame" c_engine_draw_frame :: Ptr A
 foreign import ccall "c_extern.h engine_term_display" c_engine_term_display :: Ptr AndroidEngine -> IO ()
 foreign import ccall "c_extern.h ASensorEventQueue_enableSensor" c_ASensorEventQueue_enableSensor :: Ptr ASensorEventQueue -> Ptr ASensor -> IO Int
 foreign import ccall "c_extern.h ASensorEventQueue_setEventRate" c_ASensorEventQueue_setEventRate :: Ptr ASensorEventQueue -> Ptr ASensor -> Int -> IO Int
-
-
+foreign import ccall "c_extern.h ANativeWindow_setBuffersGeometry" c_ANativeWindow_setBuffersGeometry :: Ptr ANativeWindow -> Int -> Int -> Int -> IO Int
 foreign import ccall "c_extern.h ASensorEventQueue_disableSensor" c_ASensorEventQueue_disableSensor :: Ptr ASensorEventQueue -> Ptr ASensor -> IO Int
 
 engineHandleCmd :: Ptr AndroidEngine -> Int -> IO ()
@@ -210,6 +208,38 @@ foreign export ccall "engineHandleCmd" engineHandleCmd :: Ptr AndroidEngine -> I
 
 
 -- EGL
+type EGLint     = Int
+type EGLBoolean = Word32
+type EGLenum    = Word32
+type EGLNativeDisplayType = Ptr () -- xxx Not same type on platforms
+type EGLNativeWindowType  = Ptr ()
+type EGLConfig  = Ptr () -- xxx unsafe
+type EGLContext = Ptr ()
+type EGLDisplay = Ptr ()
+type EGLSurface = Ptr ()
+type EGLClientBuffer = Ptr ()
+type EGLattribs = [EGLint] -- Should use with withArray0
+foreign import primitive "const.EGL_SURFACE_TYPE" c_EGL_SURFACE_TYPE :: EGLint
+foreign import primitive "const.EGL_WINDOW_BIT" c_EGL_WINDOW_BIT :: EGLint
+foreign import primitive "const.EGL_BLUE_SIZE" c_EGL_BLUE_SIZE :: EGLint
+foreign import primitive "const.EGL_GREEN_SIZE" c_EGL_GREEN_SIZE :: EGLint
+foreign import primitive "const.EGL_RED_SIZE" c_EGL_RED_SIZE :: EGLint
+foreign import primitive "const.EGL_NONE" c_EGL_NONE :: EGLint
+foreign import primitive "const.EGL_HEIGHT" c_EGL_HEIGHT :: EGLint
+foreign import primitive "const.EGL_WIDTH" c_EGL_WIDTH :: EGLint
+foreign import primitive "const.EGL_NATIVE_VISUAL_ID" c_EGL_NATIVE_VISUAL_ID :: EGLint
+c_EGL_DEFAULT_DISPLAY = nullPtr
+c_EGL_FALSE, c_EGL_TRUE :: EGLBoolean
+c_EGL_FALSE = 0
+c_EGL_TRUE = 1
+
+foreign import ccall "c_extern.h eglGetDisplay" c_eglGetDisplay :: EGLNativeDisplayType -> IO EGLDisplay
+foreign import ccall "c_extern.h eglInitialize" c_eglInitialize :: EGLDisplay -> Ptr EGLint -> Ptr EGLint -> IO EGLBoolean
+foreign import ccall "c_extern.h eglChooseConfig" c_eglChooseConfig :: EGLDisplay -> Ptr EGLint -> Ptr EGLConfig -> EGLint -> Ptr EGLint -> IO EGLBoolean
+foreign import ccall "c_extern.h eglGetConfigAttrib" c_eglGetConfigAttrib :: EGLDisplay -> EGLConfig -> EGLint -> Ptr EGLint -> IO EGLBoolean
+foreign import ccall "c_extern.h eglCreateWindowSurface" c_eglCreateWindowSurface :: EGLDisplay -> EGLConfig -> EGLNativeWindowType -> Ptr EGLint -> IO EGLSurface
+foreign import ccall "c_extern.h eglCreateContext" c_eglCreateContext :: EGLDisplay -> EGLConfig -> EGLContext -> Ptr EGLint -> IO EGLContext
+foreign import ccall "c_extern.h eglQuerySurface" c_eglQuerySurface :: EGLDisplay -> EGLSurface -> EGLint -> Ptr EGLint -> IO EGLBoolean
 foreign import ccall "c_extern.h eglSwapBuffers" c_eglSwapBuffers :: EGLDisplay -> EGLSurface -> IO Word32
 foreign import ccall "c_extern.h eglMakeCurrent" c_eglMakeCurrent :: EGLDisplay -> EGLSurface -> EGLSurface -> EGLContext -> IO Word32
 foreign import ccall "c_extern.h eglDestroyContext" c_eglDestroyContext :: EGLDisplay -> EGLContext -> IO Word32
@@ -273,13 +303,44 @@ foreign export ccall "engineDrawFrame" engineDrawFrame :: Ptr AndroidEngine -> I
 
 
 engineInitDisplay :: Ptr AndroidEngine -> IO Int
-engineInitDisplay eng = peek eng >>= go >>= poke eng >> return 0
-  where go :: AndroidEngine -> IO AndroidEngine
+engineInitDisplay eng = peek eng >>= go >>= maybe (return (-1)) (\r -> poke eng r >> return 0)
+  where go :: AndroidEngine -> IO (Maybe AndroidEngine)
         go enghs = do
-          c_glHint       c_GL_PERSPECTIVE_CORRECTION_HINT c_GL_FASTEST
-          c_glEnable     c_GL_CULL_FACE
-          c_glShadeModel c_GL_SMOOTH
-          c_glDisable    c_GL_DEPTH_TEST
-          return enghs
+          disp <- c_eglGetDisplay c_EGL_DEFAULT_DISPLAY
+          c_eglInitialize disp nullPtr nullPtr
+          let attribsHs = [ c_EGL_SURFACE_TYPE, c_EGL_WINDOW_BIT,
+                            c_EGL_BLUE_SIZE,  8,
+                            c_EGL_GREEN_SIZE, 8,
+                            c_EGL_RED_SIZE,   8,
+                            c_EGL_NONE ]
+          alloca $ \config_p -> alloca $ \numConfigs_p -> alloca $ \format_p -> withArray attribsHs $ \attribs -> do
+            c_eglChooseConfig disp attribs config_p 1 numConfigs_p
+            config <- peek config_p
+            c_eglGetConfigAttrib disp config c_EGL_NATIVE_VISUAL_ID format_p
+            format <- peek format_p
+            apphs <- peek $ engApp enghs
+            let win = appWindow apphs
+            c_ANativeWindow_setBuffersGeometry win 0 0 format
+            surf <- c_eglCreateWindowSurface disp config (castPtr win) nullPtr
+            cont <- c_eglCreateContext disp config nullPtr nullPtr
+            b <- c_eglMakeCurrent disp surf surf cont
+            if b == c_EGL_FALSE then return Nothing
+              else alloca $ \w_p -> alloca $ \h_p -> do
+                      c_eglQuerySurface disp surf c_EGL_WIDTH w_p
+                      c_eglQuerySurface disp surf c_EGL_HEIGHT h_p
+                      w <- peek w_p
+                      h <- peek h_p
+                      c_glHint       c_GL_PERSPECTIVE_CORRECTION_HINT c_GL_FASTEST
+                      c_glEnable     c_GL_CULL_FACE
+                      c_glShadeModel c_GL_SMOOTH
+                      c_glDisable    c_GL_DEPTH_TEST
+                      let stat = engState enghs
+                      return . Just $ enghs { engEglDisplay = disp
+                                            , engEglContext = cont
+                                            , engEglSurface = surf
+                                            , engWidth      = w
+                                            , engHeight     = h
+                                            , engState      = stat { sStateAngle = 0 }
+                                            }
 
 foreign export ccall "engineInitDisplay" engineInitDisplay :: Ptr AndroidEngine -> IO Int
