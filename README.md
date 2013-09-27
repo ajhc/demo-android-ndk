@@ -1,4 +1,4 @@
-# Demo Ajhc apps with Android NDK [![Build Status](https://travis-ci.org/ajhc/demo-android-ndk.png)](https://travis-ci.org/ajhc/demo-android-ndk)
+# Demo Ajhc apps on Android NDK [![Build Status](https://travis-ci.org/ajhc/demo-android-ndk.png)](https://travis-ci.org/ajhc/demo-android-ndk)
 
 The demo needs Ajhc 0.8.0.8 or later.
 
@@ -15,12 +15,11 @@ Download android SDK and NDK on following links.
 * http://developer.android.com/sdk/index.html
 * http://developer.android.com/tools/sdk/ndk/index.html
 
-    $ wget http://dl.google.com/android/android-sdk_r15-linux.tgz
-    $ wget http://dl.google.com/android/ndk/android-ndk-r9-linux-x86_64.tar.bz2
-
 Unpack them and setting PATH for SDK/NDK.
 
     $ cd $HOME
+    $ wget http://dl.google.com/android/android-sdk_r22-linux.tgz
+    $ wget http://dl.google.com/android/ndk/android-ndk-r9-linux-x86_64.tar.bz2
     $ tar xf android-sdk_r22-linux.tgz
     $ tar xf android-ndk-r9-linux-x86_64.tar.bz2
     $ mv android-ndk-r9 android-ndk
