@@ -104,6 +104,20 @@ instance Storable AndroidEngine where
                            , engEglDisplay          = eglDisp
                            , engEglSurface          = eglSurf
                            , engEglContext          = eglCont }
+defaultAndroidEngine :: AndroidEngine
+defaultAndroidEngine = AndroidEngine { engApp                 = nullPtr
+                                     , engSensorManager       = nullPtr
+                                     , engAccelerometerSensor = nullPtr
+                                     , engSensorEventQueue    = nullPtr
+                                     , engAnimating           = 0
+                                     , engWidth               = 0
+                                     , engHeight              = 0
+                                     , engState               = SavedState { sStateAngle = 0
+                                                                           , sStateX     = 0
+                                                                           , sStateY     = 0 }
+                                     , engEglDisplay          = nullPtr
+                                     , engEglSurface          = nullPtr
+                                     , engEglContext          = nullPtr }
 
 -- struct android_app
 foreign import primitive "const.sizeof(struct android_app)" sizeOf_AndroidApp :: Int
@@ -111,13 +125,17 @@ foreign import primitive "const.offsetof(struct android_app, userData)" offsetOf
 foreign import primitive "const.offsetof(struct android_app, savedState)" offsetOf_AndroidApp_appSavedState :: Int
 foreign import primitive "const.offsetof(struct android_app, savedStateSize)" offsetOf_AndroidApp_appSavedStateSize :: Int
 foreign import primitive "const.offsetof(struct android_app, window)" offsetOf_AndroidApp_appWindow :: Int
+foreign import primitive "const.offsetof(struct android_app, onAppCmd)" offsetOf_AndroidApp_appOnAppCmd :: Int
+foreign import primitive "const.offsetof(struct android_app, onInputEvent)" offsetOf_AndroidApp_appOnInputEvent :: Int
 
 newtype {-# CTYPE "ANativeWindow" #-} ANativeWindow = ANativeWindow ()
 
 data AndroidApp = AndroidApp { appUserData       :: Ptr AndroidEngine
                              , appSavedState     :: Ptr SavedState
                              , appSavedStateSize :: CSize
-                             , appWindow         :: Ptr ANativeWindow }
+                             , appWindow         :: Ptr ANativeWindow
+                             , appOnAppCmd       :: FunPtr (Ptr AndroidApp -> Int -> IO ())
+                             , appOnInputEvent   :: FunPtr (Ptr AndroidApp -> Ptr AInputEvent -> IO Int) }
 instance Storable AndroidApp where
   sizeOf    = const sizeOf_AndroidApp
   alignment = sizeOf
@@ -126,15 +144,21 @@ instance Storable AndroidApp where
     pokeByteOff p offsetOf_AndroidApp_appSavedState     $ appSavedState app
     pokeByteOff p offsetOf_AndroidApp_appSavedStateSize $ appSavedStateSize app
     pokeByteOff p offsetOf_AndroidApp_appWindow         $ appWindow app
+    pokeByteOff p offsetOf_AndroidApp_appOnAppCmd       $ appOnAppCmd app
+    pokeByteOff p offsetOf_AndroidApp_appOnInputEvent   $ appOnInputEvent app
   peek p = do
     userData       <- peekByteOff p offsetOf_AndroidApp_appUserData
     savedState     <- peekByteOff p offsetOf_AndroidApp_appSavedState
     savedStateSize <- peekByteOff p offsetOf_AndroidApp_appSavedStateSize
     window         <- peekByteOff p offsetOf_AndroidApp_appWindow
+    onApp          <- peekByteOff p offsetOf_AndroidApp_appOnAppCmd
+    onInput        <- peekByteOff p offsetOf_AndroidApp_appOnInputEvent
     return $ AndroidApp { appUserData       = userData
                         , appSavedState     = savedState
                         , appSavedStateSize = savedStateSize
-                        , appWindow         = window }
+                        , appWindow         = window
+                        , appOnAppCmd       = onApp
+                        , appOnInputEvent   = onInput }
 
 
 newtype {-# CTYPE "AInputEvent" #-} AInputEvent = AInputEvent ()
@@ -340,7 +364,12 @@ engineInitDisplay eng = peek eng >>= go >>= maybe (return (-1)) (\r -> poke eng 
                                             , engEglSurface = surf
                                             , engWidth      = w
                                             , engHeight     = h
-                                            , engState      = stat { sStateAngle = 0 }
-                                            }
+                                            , engState      = stat { sStateAngle = 0 } }
 
 foreign export ccall "engineInitDisplay" engineInitDisplay :: Ptr AndroidEngine -> IO Int
+
+
+foreign import ccall "&engine_handle_input" p_engine_handle_input ::
+  FunPtr (Ptr AndroidApp -> Ptr AInputEvent -> IO Int)
+foreign import ccall "&engine_handle_cmd" p_engine_handle_cmd ::
+  FunPtr (Ptr AndroidApp -> Int -> IO ())

@@ -49,7 +49,7 @@ void engine_term_display(struct engine* engine) {
  * Process the next input event.
  */
 extern int32_t engineHandleInput(struct engine* engine, AInputEvent* event);
-static int32_t engine_handle_input(struct android_app* app, AInputEvent* event) {
+int32_t engine_handle_input(struct android_app* app, AInputEvent* event) {
     struct engine* engine = (struct engine*)app->userData;
     return engineHandleInput(engine, event);
 }
@@ -58,7 +58,7 @@ static int32_t engine_handle_input(struct android_app* app, AInputEvent* event) 
  * Process the next main command.
  */
 extern void engineHandleCmd(struct engine* engine, int32_t cmd);
-static void engine_handle_cmd(struct android_app* app, int32_t cmd) {
+void engine_handle_cmd(struct android_app* app, int32_t cmd) {
     struct engine* engine = (struct engine*)app->userData;
     engineHandleCmd(engine, cmd);
 }
@@ -68,43 +68,37 @@ static void engine_handle_cmd(struct android_app* app, int32_t cmd) {
  * android_native_app_glue.  It runs in its own thread, with its own
  * event loop for receiving input events and doing other things.
  */
+extern void androidMain(struct android_app* state);
 void android_main(struct android_app* state) {
-    struct engine engine;
+	// Make sure glue isn't stripped.
+	app_dummy();
 
-    // Make sure glue isn't stripped.
-    app_dummy();
+	{ // Init Haskell code.
+		int hsargc = 1;
+		char *hsargv = "q";
+		char **hsargvp = &hsargv;
 
-    { // Init Haskell code.
-        int hsargc = 1;
-        char *hsargv = "q";
-        char **hsargvp = &hsargv;
+		hs_init(&hsargc, &hsargvp);
+		androidMain(state);
+	}
 
-        hs_init(&hsargc, &hsargvp);
-    }
+	struct engine *engine = state->userData;
 
-    memset(&engine, 0, sizeof(engine));
-    state->userData = &engine;
-    state->onAppCmd = engine_handle_cmd;
-    state->onInputEvent = engine_handle_input;
-    engine.app = state;
-
+#if 1
     // Prepare to monitor accelerometer
-    engine.sensorManager = ASensorManager_getInstance();
-    engine.accelerometerSensor = ASensorManager_getDefaultSensor(engine.sensorManager,
+    engine->sensorManager = ASensorManager_getInstance();
+    engine->accelerometerSensor = ASensorManager_getDefaultSensor(engine->sensorManager,
             ASENSOR_TYPE_ACCELEROMETER);
-    engine.sensorEventQueue = ASensorManager_createEventQueue(engine.sensorManager,
+    engine->sensorEventQueue = ASensorManager_createEventQueue(engine->sensorManager,
             state->looper, LOOPER_ID_USER, NULL, NULL);
 
     if (state->savedState != NULL) {
         // We are starting with a previous saved state; restore from it.
-        engine.state = *(struct saved_state*)state->savedState;
+        engine->state = *(struct saved_state*)state->savedState;
     }
+#endif
 
-    { // Run Haskell code.
-        _amain();
-        // hs_exit();
-    }
-
+#if 1
     // loop waiting for stuff to do.
 
     while (1) {
@@ -116,7 +110,7 @@ void android_main(struct android_app* state) {
         // If not animating, we will block forever waiting for events.
         // If animating, we loop until all events are read, then continue
         // to draw the next frame of animation.
-        while ((ident=ALooper_pollAll(engine.animating ? 0 : -1, NULL, &events,
+        while ((ident=ALooper_pollAll(engine->animating ? 0 : -1, NULL, &events,
                 (void**)&source)) >= 0) {
 
             // Process this event.
@@ -126,9 +120,9 @@ void android_main(struct android_app* state) {
 
             // If a sensor has data, process it now.
             if (ident == LOOPER_ID_USER) {
-                if (engine.accelerometerSensor != NULL) {
+                if (engine->accelerometerSensor != NULL) {
                     ASensorEvent event;
-                    while (ASensorEventQueue_getEvents(engine.sensorEventQueue,
+                    while (ASensorEventQueue_getEvents(engine->sensorEventQueue,
                             &event, 1) > 0) {
                         LOGI("accelerometer: x=%f y=%f z=%f",
                                 event.acceleration.x, event.acceleration.y,
@@ -139,22 +133,23 @@ void android_main(struct android_app* state) {
 
             // Check if we are exiting.
             if (state->destroyRequested != 0) {
-                engine_term_display(&engine);
+                engine_term_display(engine);
                 return;
             }
         }
 
-        if (engine.animating) {
+        if (engine->animating) {
             // Done with events; draw next animation frame.
-            engine.state.angle += .01f;
-            if (engine.state.angle > 1) {
-                engine.state.angle = 0;
+            engine->state.angle += .01f;
+            if (engine->state.angle > 1) {
+                engine->state.angle = 0;
             }
 
             // Drawing is throttled to the screen update rate, so there
             // is no need to do timing here.
-            engine_draw_frame(&engine);
+            engine_draw_frame(engine);
         }
     }
+#endif
 }
 //END_INCLUDE(all)

@@ -42,5 +42,7 @@ struct engine {
 int engine_init_display(struct engine* engine);
 void engine_draw_frame(struct engine* engine);
 void engine_term_display(struct engine* engine);
+int32_t engine_handle_input(struct android_app* app, AInputEvent* event);
+void engine_handle_cmd(struct android_app* app, int32_t cmd);
 
 #endif /* _C_EXTERN_H */
