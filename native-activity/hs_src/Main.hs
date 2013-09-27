@@ -1,4 +1,5 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
+import Control.Monad
 import Foreign.Ptr
 import Foreign.Storable
 import Foreign.Marshal.Alloc
@@ -27,4 +28,8 @@ androidMain app = do
                    , engSensorManager = sManage
                    , engAccelerometerSensor = accel
                    , engSensorEventQueue = sEvent }
+  let ss_p = appSavedState apphs'
+  when (ss_p /= nullPtr) $ do
+    ss <- peek ss_p
+    peek eng >>= (\e -> return $ e {engState = ss}) >>= poke eng
   return ()

@@ -85,13 +85,6 @@ void android_main(struct android_app* state) {
 	struct engine *engine = state->userData;
 
 #if 1
-    if (state->savedState != NULL) {
-        // We are starting with a previous saved state; restore from it.
-        engine->state = *(struct saved_state*)state->savedState;
-    }
-#endif
-
-#if 1
     // loop waiting for stuff to do.
 
     while (1) {
