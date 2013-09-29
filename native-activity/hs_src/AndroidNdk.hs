@@ -1,7 +1,6 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
-module AndroidNdk where
+module AndroidNdk (module AndroidNdk, module AndroidNdk.Storable) where
 import Control.Monad
-import Data.Word
 import Data.Maybe
 import Foreign.Storable
 import Foreign.C.Types
@@ -9,214 +8,9 @@ import Foreign.Ptr
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Array
 
--- struct saved_state
-foreign import primitive "const.sizeof(struct saved_state)" sizeOf_SavedState :: Int
-foreign import primitive "const.offsetof(struct saved_state, angle)" offsetOf_SavedState_angle :: Int
-foreign import primitive "const.offsetof(struct saved_state, x)" offsetOf_SavedState_x :: Int
-foreign import primitive "const.offsetof(struct saved_state, y)" offsetOf_SavedState_y :: Int
-
-data SavedState = SavedState { sStateAngle :: Float
-                             , sStateX     :: Int
-                             , sStateY     :: Int }
-instance Storable SavedState where
-  sizeOf    = const sizeOf_SavedState
-  alignment = sizeOf
-  poke p sstat = do
-    pokeByteOff p offsetOf_SavedState_angle $ sStateAngle sstat
-    pokeByteOff p offsetOf_SavedState_x     $ sStateX sstat
-    pokeByteOff p offsetOf_SavedState_y     $ sStateY sstat
-  peek p = do
-    angle <- peekByteOff p offsetOf_SavedState_angle
-    x     <- peekByteOff p offsetOf_SavedState_x
-    y     <- peekByteOff p offsetOf_SavedState_y
-    return $ SavedState { sStateAngle = angle, sStateX = x, sStateY = y }
-
--- struct engine
-foreign import primitive "const.sizeof(struct engine)" sizeOf_Engine :: Int
-foreign import primitive "const.offsetof(struct engine, app)" offsetOf_Engine_app :: Int
-foreign import primitive "const.offsetof(struct engine, sensorManager)" offsetOf_Engine_sensorManager :: Int
-foreign import primitive "const.offsetof(struct engine, accelerometerSensor)" offsetOf_Engine_accelerometerSensor :: Int
-foreign import primitive "const.offsetof(struct engine, sensorEventQueue)" offsetOf_Engine_sensorEventQueue :: Int
-foreign import primitive "const.offsetof(struct engine, animating)" offsetOf_Engine_animating :: Int
-foreign import primitive "const.offsetof(struct engine, display)" offsetOf_Engine_display :: Int
-foreign import primitive "const.offsetof(struct engine, surface)" offsetOf_Engine_surface :: Int
-foreign import primitive "const.offsetof(struct engine, context)" offsetOf_Engine_context :: Int
-foreign import primitive "const.offsetof(struct engine, width)" offsetOf_Engine_width :: Int
-foreign import primitive "const.offsetof(struct engine, height)" offsetOf_Engine_height :: Int
-foreign import primitive "const.offsetof(struct engine, state)" offsetOf_Engine_state :: Int
-foreign import primitive "const.sizeof(EGLDisplay)" sizeOf_EGLDisplay :: Int
-foreign import primitive "const.sizeof(EGLSurface)" sizeOf_EGLSurface :: Int
-foreign import primitive "const.sizeof(EGLContext)" sizeOf_EGLContext :: Int
-
-newtype {-# CTYPE "ASensorManager" #-}    ASensorManager    = ASensorManager ()
-newtype {-# CTYPE "ASensor" #-}           ASensor           = ASensor ()
-newtype {-# CTYPE "ASensorEvent" #-}      ASensorEvent      = ASensorEvent ()
-newtype {-# CTYPE "ASensorEventQueue" #-} ASensorEventQueue = ASensorEventQueue ()
-newtype {-# CTYPE "ALooper" #-}           ALooper           = ALooper ()
-type ALooper_callbackFunc = Ptr () -- xxx
-c_EGL_NO_DISPLAY = nullPtr
-c_EGL_NO_SURFACE = nullPtr
-c_EGL_NO_CONTEXT = nullPtr
-foreign import primitive "const.sizeof(ASensorEvent)" sizeOf_ASensorEvent :: Int
-foreign import primitive "const.ASENSOR_TYPE_ACCELEROMETER" c_ASENSOR_TYPE_ACCELEROMETER :: Int
-foreign import primitive "const.LOOPER_ID_USER" c_LOOPER_ID_USER :: Int
-
-data AndroidEngine = AndroidEngine { engApp                 :: Ptr AndroidApp
-                                   , engSensorManager       :: Ptr ASensorManager
-                                   , engAccelerometerSensor :: Ptr ASensor
-                                   , engSensorEventQueue    :: Ptr ASensorEventQueue
-                                   , engAnimating           :: Int
-                                   , engWidth               :: Int
-                                   , engHeight              :: Int
-                                   , engState               :: SavedState
-                                   , engEglDisplay          :: EGLDisplay
-                                   , engEglSurface          :: EGLSurface
-                                   , engEglContext          :: EGLContext }
-instance Storable AndroidEngine where
-  sizeOf    = const sizeOf_Engine
-  alignment = sizeOf
-  poke p eng = do
-    pokeByteOff p offsetOf_Engine_app                 $ engApp eng
-    pokeByteOff p offsetOf_Engine_sensorManager       $ engSensorManager eng
-    pokeByteOff p offsetOf_Engine_accelerometerSensor $ engAccelerometerSensor eng
-    pokeByteOff p offsetOf_Engine_sensorEventQueue    $ engSensorEventQueue eng
-    pokeByteOff p offsetOf_Engine_animating           $ engAnimating eng
-    pokeByteOff p offsetOf_Engine_width               $ engWidth eng
-    pokeByteOff p offsetOf_Engine_height              $ engHeight eng
-    pokeByteOff p offsetOf_Engine_state               $ engState eng
-    pokeByteOff p offsetOf_Engine_display             $ engEglDisplay eng
-    pokeByteOff p offsetOf_Engine_surface             $ engEglSurface eng
-    pokeByteOff p offsetOf_Engine_context             $ engEglContext eng
-  peek p = do
-    app                 <- peekByteOff p offsetOf_Engine_app
-    sensorManager       <- peekByteOff p offsetOf_Engine_sensorManager
-    accelerometerSensor <- peekByteOff p offsetOf_Engine_accelerometerSensor
-    sensorEventQueue    <- peekByteOff p offsetOf_Engine_sensorEventQueue
-    animating           <- peekByteOff p offsetOf_Engine_animating
-    width               <- peekByteOff p offsetOf_Engine_width
-    height              <- peekByteOff p offsetOf_Engine_height
-    state               <- peekByteOff p offsetOf_Engine_state
-    eglDisp             <- peekByteOff p offsetOf_Engine_display
-    eglSurf             <- peekByteOff p offsetOf_Engine_surface
-    eglCont             <- peekByteOff p offsetOf_Engine_context
-    return $ AndroidEngine { engApp                 = app
-                           , engSensorManager       = sensorManager
-                           , engAccelerometerSensor = accelerometerSensor
-                           , engSensorEventQueue    = sensorEventQueue
-                           , engAnimating           = animating
-                           , engWidth               = width
-                           , engHeight              = height
-                           , engState               = state
-                           , engEglDisplay          = eglDisp
-                           , engEglSurface          = eglSurf
-                           , engEglContext          = eglCont }
-defaultAndroidEngine :: AndroidEngine
-defaultAndroidEngine = AndroidEngine { engApp                 = nullPtr
-                                     , engSensorManager       = nullPtr
-                                     , engAccelerometerSensor = nullPtr
-                                     , engSensorEventQueue    = nullPtr
-                                     , engAnimating           = 0
-                                     , engWidth               = 0
-                                     , engHeight              = 0
-                                     , engState               = SavedState { sStateAngle = 0
-                                                                           , sStateX     = 0
-                                                                           , sStateY     = 0 }
-                                     , engEglDisplay          = nullPtr
-                                     , engEglSurface          = nullPtr
-                                     , engEglContext          = nullPtr }
-
--- struct android_app
-foreign import primitive "const.sizeof(struct android_app)" sizeOf_AndroidApp :: Int
-foreign import primitive "const.offsetof(struct android_app, userData)" offsetOf_AndroidApp_appUserData :: Int
-foreign import primitive "const.offsetof(struct android_app, savedState)" offsetOf_AndroidApp_appSavedState :: Int
-foreign import primitive "const.offsetof(struct android_app, savedStateSize)" offsetOf_AndroidApp_appSavedStateSize :: Int
-foreign import primitive "const.offsetof(struct android_app, window)" offsetOf_AndroidApp_appWindow :: Int
-foreign import primitive "const.offsetof(struct android_app, looper)" offsetOf_AndroidApp_appLooper :: Int
-foreign import primitive "const.offsetof(struct android_app, destroyRequested)" offsetOf_AndroidApp_appDestroyRequested :: Int
-foreign import primitive "const.offsetof(struct android_app, onAppCmd)" offsetOf_AndroidApp_appOnAppCmd :: Int
-foreign import primitive "const.offsetof(struct android_app, onInputEvent)" offsetOf_AndroidApp_appOnInputEvent :: Int
-
-newtype {-# CTYPE "ANativeWindow" #-} ANativeWindow = ANativeWindow ()
-
-data AndroidApp = AndroidApp { appUserData       :: Ptr AndroidEngine
-                             , appSavedState     :: Ptr SavedState
-                             , appSavedStateSize :: CSize
-                             , appWindow         :: Ptr ANativeWindow
-                             , appLooper         :: Ptr ALooper
-                             , appDestroyRequested :: Int
-                             , appOnAppCmd       :: FunPtr (Ptr AndroidApp -> Int -> IO ())
-                             , appOnInputEvent   :: FunPtr (Ptr AndroidApp -> Ptr AInputEvent -> IO Int) }
-instance Storable AndroidApp where
-  sizeOf    = const sizeOf_AndroidApp
-  alignment = sizeOf
-  poke p app = do
-    pokeByteOff p offsetOf_AndroidApp_appUserData       $ appUserData app
-    pokeByteOff p offsetOf_AndroidApp_appSavedState     $ appSavedState app
-    pokeByteOff p offsetOf_AndroidApp_appSavedStateSize $ appSavedStateSize app
-    pokeByteOff p offsetOf_AndroidApp_appWindow         $ appWindow app
-    pokeByteOff p offsetOf_AndroidApp_appLooper         $ appLooper app
-    pokeByteOff p offsetOf_AndroidApp_appDestroyRequested $ appDestroyRequested app
-    pokeByteOff p offsetOf_AndroidApp_appOnAppCmd       $ appOnAppCmd app
-    pokeByteOff p offsetOf_AndroidApp_appOnInputEvent   $ appOnInputEvent app
-  peek p = do
-    userData       <- peekByteOff p offsetOf_AndroidApp_appUserData
-    savedState     <- peekByteOff p offsetOf_AndroidApp_appSavedState
-    savedStateSize <- peekByteOff p offsetOf_AndroidApp_appSavedStateSize
-    window         <- peekByteOff p offsetOf_AndroidApp_appWindow
-    looper         <- peekByteOff p offsetOf_AndroidApp_appLooper
-    destroy        <- peekByteOff p offsetOf_AndroidApp_appDestroyRequested
-    onApp          <- peekByteOff p offsetOf_AndroidApp_appOnAppCmd
-    onInput        <- peekByteOff p offsetOf_AndroidApp_appOnInputEvent
-    return $ AndroidApp { appUserData       = userData
-                        , appSavedState     = savedState
-                        , appSavedStateSize = savedStateSize
-                        , appWindow         = window
-                        , appLooper         = looper
-                        , appDestroyRequested = destroy
-                        , appOnAppCmd       = onApp
-                        , appOnInputEvent   = onInput }
-
--- struct android_poll_source
-foreign import primitive "const.sizeof(struct android_poll_source)" sizeOf_AndroidPollSource :: Int
-foreign import primitive "const.offsetof(struct android_poll_source, process)" offsetOf_AndroidPollSource_pollProcess :: Int
-type PollProcessFunction = Ptr AndroidApp -> Ptr AndroidPollSource -> IO ()
-foreign import ccall "dynamic" mkFun_AndroidPollSource_pollProcess :: FunPtr PollProcessFunction -> PollProcessFunction
-
-data AndroidPollSource = AndroidPollSource {
-  pollProcess :: FunPtr PollProcessFunction
-  }
-instance Storable AndroidPollSource where
-  sizeOf    = const sizeOf_AndroidPollSource
-  alignment = sizeOf
-  poke p poll = pokeByteOff p offsetOf_AndroidPollSource_pollProcess $ pollProcess poll
-  peek p = do
-    process <- peekByteOff p offsetOf_AndroidPollSource_pollProcess
-    return $ AndroidPollSource { pollProcess = process }
-
-newtype {-# CTYPE "AInputEvent" #-} AInputEvent = AInputEvent ()
-foreign import primitive "const.AINPUT_EVENT_TYPE_MOTION" c_AINPUT_EVENT_TYPE_MOTION :: Int
-foreign import ccall "c_extern.h AInputEvent_getType" c_AInputEvent_getType :: Ptr AInputEvent -> IO Int
-foreign import ccall "c_extern.h AMotionEvent_getX" c_AMotionEvent_getX :: Ptr AInputEvent -> CSize -> IO Float
-foreign import ccall "c_extern.h AMotionEvent_getY" c_AMotionEvent_getY :: Ptr AInputEvent -> CSize -> IO Float
-
--- Process the next input event.
-engineHandleInput :: Ptr AndroidApp -> Ptr AInputEvent -> IO Int
-engineHandleInput app event = do
-  apphs <- peek app
-  let eng = appUserData apphs
-  t <- c_AInputEvent_getType event
-  if t /= c_AINPUT_EVENT_TYPE_MOTION then return 0
-    else do enghs <- peek eng
-            let stat = engState enghs
-            x <- c_AMotionEvent_getX event 0
-            y <- c_AMotionEvent_getY event 0
-            let enghs' = enghs { engAnimating = 1
-                               , engState = stat { sStateX = truncate x,  sStateY = truncate y } }
-            poke eng enghs'
-            return 1
-
-foreign export ccall "engineHandleInput" engineHandleInput :: Ptr AndroidApp -> Ptr AInputEvent -> IO Int
-foreign import ccall "&engineHandleInput" p_engineHandleInput :: FunPtr (Ptr AndroidApp -> Ptr AInputEvent -> IO Int)
+import EGL
+import OpenGLES
+import AndroidNdk.Storable
 
 
 type CSSize = Int
@@ -236,7 +30,30 @@ foreign import ccall "c_extern.h ASensorManager_createEventQueue" c_ASensorManag
 foreign import ccall "c_extern.h ALooper_pollAll" c_ALooper_pollAll :: Int -> Ptr Int -> Ptr Int -> Ptr (Ptr ()) -> IO Int
 foreign import ccall "c_extern.h ASensorEventQueue_getEvents" c_ASensorEventQueue_getEvents :: Ptr ASensorEventQueue -> Ptr ASensorEvent -> CSize -> IO CSSize
 
+
+-- Process the next input event.
+foreign export ccall "engineHandleInput" engineHandleInput :: Ptr AndroidApp -> Ptr AInputEvent -> IO Int
+foreign import ccall "&engineHandleInput" p_engineHandleInput :: FunPtr (Ptr AndroidApp -> Ptr AInputEvent -> IO Int)
+
+engineHandleInput :: Ptr AndroidApp -> Ptr AInputEvent -> IO Int
+engineHandleInput app event = do
+  apphs <- peek app
+  let eng = appUserData apphs
+  t <- c_AInputEvent_getType event
+  if t /= c_AINPUT_EVENT_TYPE_MOTION then return 0
+    else do enghs <- peek eng
+            let stat = engState enghs
+            x <- c_AMotionEvent_getX event 0
+            y <- c_AMotionEvent_getY event 0
+            let enghs' = enghs { engAnimating = 1
+                               , engState = stat { sStateX = truncate x,  sStateY = truncate y } }
+            poke eng enghs'
+            return 1
+
 -- Process the next main command.
+foreign export ccall "engineHandleCmd" engineHandleCmd :: Ptr AndroidApp -> Int -> IO ()
+foreign import ccall "&engineHandleCmd" p_engineHandleCmd :: FunPtr (Ptr AndroidApp -> Int -> IO ())
+
 engineHandleCmd :: Ptr AndroidApp -> Int -> IO ()
 engineHandleCmd app cmd = do
   apphs <- peek app
@@ -274,48 +91,6 @@ engineHandleCmd' eng cmd
                                      engineDrawFrame eng
 engineHandleCmd' _ _ = return ()
 
-foreign export ccall "engineHandleCmd" engineHandleCmd :: Ptr AndroidApp -> Int -> IO ()
-foreign import ccall "&engineHandleCmd" p_engineHandleCmd :: FunPtr (Ptr AndroidApp -> Int -> IO ())
-
-
--- EGL
-type EGLint     = Int
-type EGLBoolean = Word32
-type EGLenum    = Word32
-type EGLNativeDisplayType = Ptr () -- xxx Not same type on platforms
-type EGLNativeWindowType  = Ptr ()
-type EGLConfig  = Ptr () -- xxx unsafe
-type EGLContext = Ptr ()
-type EGLDisplay = Ptr ()
-type EGLSurface = Ptr ()
-type EGLClientBuffer = Ptr ()
-type EGLattribs = [EGLint] -- Should use with withArray0
-foreign import primitive "const.EGL_SURFACE_TYPE" c_EGL_SURFACE_TYPE :: EGLint
-foreign import primitive "const.EGL_WINDOW_BIT" c_EGL_WINDOW_BIT :: EGLint
-foreign import primitive "const.EGL_BLUE_SIZE" c_EGL_BLUE_SIZE :: EGLint
-foreign import primitive "const.EGL_GREEN_SIZE" c_EGL_GREEN_SIZE :: EGLint
-foreign import primitive "const.EGL_RED_SIZE" c_EGL_RED_SIZE :: EGLint
-foreign import primitive "const.EGL_NONE" c_EGL_NONE :: EGLint
-foreign import primitive "const.EGL_HEIGHT" c_EGL_HEIGHT :: EGLint
-foreign import primitive "const.EGL_WIDTH" c_EGL_WIDTH :: EGLint
-foreign import primitive "const.EGL_NATIVE_VISUAL_ID" c_EGL_NATIVE_VISUAL_ID :: EGLint
-c_EGL_DEFAULT_DISPLAY = nullPtr
-c_EGL_FALSE, c_EGL_TRUE :: EGLBoolean
-c_EGL_FALSE = 0
-c_EGL_TRUE = 1
-
-foreign import ccall "c_extern.h eglGetDisplay" c_eglGetDisplay :: EGLNativeDisplayType -> IO EGLDisplay
-foreign import ccall "c_extern.h eglInitialize" c_eglInitialize :: EGLDisplay -> Ptr EGLint -> Ptr EGLint -> IO EGLBoolean
-foreign import ccall "c_extern.h eglChooseConfig" c_eglChooseConfig :: EGLDisplay -> Ptr EGLint -> Ptr EGLConfig -> EGLint -> Ptr EGLint -> IO EGLBoolean
-foreign import ccall "c_extern.h eglGetConfigAttrib" c_eglGetConfigAttrib :: EGLDisplay -> EGLConfig -> EGLint -> Ptr EGLint -> IO EGLBoolean
-foreign import ccall "c_extern.h eglCreateWindowSurface" c_eglCreateWindowSurface :: EGLDisplay -> EGLConfig -> EGLNativeWindowType -> Ptr EGLint -> IO EGLSurface
-foreign import ccall "c_extern.h eglCreateContext" c_eglCreateContext :: EGLDisplay -> EGLConfig -> EGLContext -> Ptr EGLint -> IO EGLContext
-foreign import ccall "c_extern.h eglQuerySurface" c_eglQuerySurface :: EGLDisplay -> EGLSurface -> EGLint -> Ptr EGLint -> IO EGLBoolean
-foreign import ccall "c_extern.h eglSwapBuffers" c_eglSwapBuffers :: EGLDisplay -> EGLSurface -> IO Word32
-foreign import ccall "c_extern.h eglMakeCurrent" c_eglMakeCurrent :: EGLDisplay -> EGLSurface -> EGLSurface -> EGLContext -> IO Word32
-foreign import ccall "c_extern.h eglDestroyContext" c_eglDestroyContext :: EGLDisplay -> EGLContext -> IO Word32
-foreign import ccall "c_extern.h eglDestroySurface" c_eglDestroySurface :: EGLDisplay -> EGLSurface -> IO Word32
-foreign import ccall "c_extern.h eglTerminate" c_eglTerminate :: EGLDisplay -> IO Word32
 
 -- Tear down the EGL context currently associated with the display.
 engineTermDisplay :: Ptr AndroidEngine -> IO ()
@@ -335,24 +110,6 @@ engineTermDisplay eng = peek eng >>= go >>= poke eng
                          , engEglSurface = c_EGL_NO_SURFACE
                          , engEglContext = c_EGL_NO_CONTEXT }
 
-foreign export ccall "engineTermDisplay" engineTermDisplay :: Ptr AndroidEngine -> IO ()
-
-
--- OpenGL ES
-type GLenum = Word32
-type GLbitfield = Word32
-foreign import ccall "c_extern.h glHint" c_glHint :: GLenum -> GLenum -> IO ()
-foreign import ccall "c_extern.h glEnable" c_glEnable:: GLenum -> IO ()
-foreign import ccall "c_extern.h glShadeModel" c_glShadeModel :: GLenum -> IO ()
-foreign import ccall "c_extern.h glDisable" c_glDisable :: GLenum -> IO ()
-foreign import ccall "c_extern.h glClearColor" c_glClearColor :: Float -> Float -> Float -> Float -> IO ()
-foreign import ccall "c_extern.h glClear" c_glClear :: GLbitfield -> IO ()
-foreign import primitive "const.GL_PERSPECTIVE_CORRECTION_HINT" c_GL_PERSPECTIVE_CORRECTION_HINT :: GLenum
-foreign import primitive "const.GL_FASTEST" c_GL_FASTEST :: GLenum
-foreign import primitive "const.GL_CULL_FACE" c_GL_CULL_FACE :: GLenum
-foreign import primitive "const.GL_SMOOTH" c_GL_SMOOTH :: GLenum
-foreign import primitive "const.GL_DEPTH_TEST" c_GL_DEPTH_TEST :: GLenum
-foreign import primitive "const.GL_COLOR_BUFFER_BIT" c_GL_COLOR_BUFFER_BIT :: Word32
 
 -- Just the current frame in the display.
 engineDrawFrame :: Ptr AndroidEngine -> IO ()
@@ -371,8 +128,6 @@ engineDrawFrame eng = peek eng >>= go
             c_glClearColor (x/w) angle (y/h) 1.0
             c_glClear c_GL_COLOR_BUFFER_BIT
             void $ c_eglSwapBuffers disp surf
-
-foreign export ccall "engineDrawFrame" engineDrawFrame :: Ptr AndroidEngine -> IO ()
 
 
 -- Initialize an EGL context for the current display.
@@ -415,5 +170,3 @@ engineInitDisplay eng = peek eng >>= go >>= maybe (return (-1)) (\r -> poke eng 
                                             , engWidth      = w
                                             , engHeight     = h
                                             , engState      = stat { sStateAngle = 0 } }
-
-foreign export ccall "engineInitDisplay" engineInitDisplay :: Ptr AndroidEngine -> IO Int
