@@ -50,12 +50,14 @@ foreign import primitive "const.sizeof(EGLContext)" sizeOf_EGLContext :: Int
 
 newtype {-# CTYPE "ASensorManager" #-}    ASensorManager    = ASensorManager ()
 newtype {-# CTYPE "ASensor" #-}           ASensor           = ASensor ()
+newtype {-# CTYPE "ASensorEvent" #-}      ASensorEvent      = ASensorEvent ()
 newtype {-# CTYPE "ASensorEventQueue" #-} ASensorEventQueue = ASensorEventQueue ()
 newtype {-# CTYPE "ALooper" #-}           ALooper           = ALooper ()
 type ALooper_callbackFunc = Ptr () -- xxx
 c_EGL_NO_DISPLAY = nullPtr
 c_EGL_NO_SURFACE = nullPtr
 c_EGL_NO_CONTEXT = nullPtr
+foreign import primitive "const.sizeof(ASensorEvent)" sizeOf_ASensorEvent :: Int
 foreign import primitive "const.ASENSOR_TYPE_ACCELEROMETER" c_ASENSOR_TYPE_ACCELEROMETER :: Int
 foreign import primitive "const.LOOPER_ID_USER" c_LOOPER_ID_USER :: Int
 
@@ -130,6 +132,7 @@ foreign import primitive "const.offsetof(struct android_app, savedState)" offset
 foreign import primitive "const.offsetof(struct android_app, savedStateSize)" offsetOf_AndroidApp_appSavedStateSize :: Int
 foreign import primitive "const.offsetof(struct android_app, window)" offsetOf_AndroidApp_appWindow :: Int
 foreign import primitive "const.offsetof(struct android_app, looper)" offsetOf_AndroidApp_appLooper :: Int
+foreign import primitive "const.offsetof(struct android_app, destroyRequested)" offsetOf_AndroidApp_appDestroyRequested :: Int
 foreign import primitive "const.offsetof(struct android_app, onAppCmd)" offsetOf_AndroidApp_appOnAppCmd :: Int
 foreign import primitive "const.offsetof(struct android_app, onInputEvent)" offsetOf_AndroidApp_appOnInputEvent :: Int
 
@@ -140,6 +143,7 @@ data AndroidApp = AndroidApp { appUserData       :: Ptr AndroidEngine
                              , appSavedStateSize :: CSize
                              , appWindow         :: Ptr ANativeWindow
                              , appLooper         :: Ptr ALooper
+                             , appDestroyRequested :: Int
                              , appOnAppCmd       :: FunPtr (Ptr AndroidApp -> Int -> IO ())
                              , appOnInputEvent   :: FunPtr (Ptr AndroidApp -> Ptr AInputEvent -> IO Int) }
 instance Storable AndroidApp where
@@ -151,6 +155,7 @@ instance Storable AndroidApp where
     pokeByteOff p offsetOf_AndroidApp_appSavedStateSize $ appSavedStateSize app
     pokeByteOff p offsetOf_AndroidApp_appWindow         $ appWindow app
     pokeByteOff p offsetOf_AndroidApp_appLooper         $ appLooper app
+    pokeByteOff p offsetOf_AndroidApp_appDestroyRequested $ appDestroyRequested app
     pokeByteOff p offsetOf_AndroidApp_appOnAppCmd       $ appOnAppCmd app
     pokeByteOff p offsetOf_AndroidApp_appOnInputEvent   $ appOnInputEvent app
   peek p = do
@@ -159,6 +164,7 @@ instance Storable AndroidApp where
     savedStateSize <- peekByteOff p offsetOf_AndroidApp_appSavedStateSize
     window         <- peekByteOff p offsetOf_AndroidApp_appWindow
     looper         <- peekByteOff p offsetOf_AndroidApp_appLooper
+    destroy        <- peekByteOff p offsetOf_AndroidApp_appDestroyRequested
     onApp          <- peekByteOff p offsetOf_AndroidApp_appOnAppCmd
     onInput        <- peekByteOff p offsetOf_AndroidApp_appOnInputEvent
     return $ AndroidApp { appUserData       = userData
@@ -166,9 +172,26 @@ instance Storable AndroidApp where
                         , appSavedStateSize = savedStateSize
                         , appWindow         = window
                         , appLooper         = looper
+                        , appDestroyRequested = destroy
                         , appOnAppCmd       = onApp
                         , appOnInputEvent   = onInput }
 
+-- struct android_poll_source
+foreign import primitive "const.sizeof(struct android_poll_source)" sizeOf_AndroidPollSource :: Int
+foreign import primitive "const.offsetof(struct android_poll_source, process)" offsetOf_AndroidPollSource_pollProcess :: Int
+type PollProcessFunction = Ptr AndroidApp -> Ptr AndroidPollSource -> IO ()
+foreign import ccall "dynamic" mkFun_AndroidPollSource_pollProcess :: FunPtr PollProcessFunction -> PollProcessFunction
+
+data AndroidPollSource = AndroidPollSource {
+  pollProcess :: FunPtr PollProcessFunction
+  }
+instance Storable AndroidPollSource where
+  sizeOf    = const sizeOf_AndroidPollSource
+  alignment = sizeOf
+  poke p poll = pokeByteOff p offsetOf_AndroidPollSource_pollProcess $ pollProcess poll
+  peek p = do
+    process <- peekByteOff p offsetOf_AndroidPollSource_pollProcess
+    return $ AndroidPollSource { pollProcess = process }
 
 newtype {-# CTYPE "AInputEvent" #-} AInputEvent = AInputEvent ()
 foreign import primitive "const.AINPUT_EVENT_TYPE_MOTION" c_AINPUT_EVENT_TYPE_MOTION :: Int
@@ -192,6 +215,7 @@ engineHandleInput eng event = do
 foreign export ccall "engineHandleInput" engineHandleInput :: Ptr AndroidEngine -> Ptr AInputEvent -> IO Int
 
 
+type CSSize = Int
 foreign import primitive "const.APP_CMD_SAVE_STATE" c_APP_CMD_SAVE_STATE :: Int
 foreign import primitive "const.APP_CMD_INIT_WINDOW" c_APP_CMD_INIT_WINDOW :: Int
 foreign import primitive "const.APP_CMD_TERM_WINDOW" c_APP_CMD_TERM_WINDOW :: Int
@@ -208,6 +232,8 @@ foreign import ccall "c_extern.h ASensorEventQueue_disableSensor" c_ASensorEvent
 foreign import ccall "c_extern.h ASensorManager_getInstance" c_ASensorManager_getInstance :: IO (Ptr ASensorManager)
 foreign import ccall "c_extern.h ASensorManager_getDefaultSensor" c_ASensorManager_getDefaultSensor :: Ptr ASensorManager -> Int -> IO (Ptr ASensor)
 foreign import ccall "c_extern.h ASensorManager_createEventQueue" c_ASensorManager_createEventQueue :: Ptr ASensorManager -> Ptr ALooper -> Int -> ALooper_callbackFunc -> Ptr () -> IO (Ptr ASensorEventQueue)
+foreign import ccall "c_extern.h ALooper_pollAll" c_ALooper_pollAll :: Int -> Ptr Int -> Ptr Int -> Ptr (Ptr ()) -> IO Int
+foreign import ccall "c_extern.h ASensorEventQueue_getEvents" c_ASensorEventQueue_getEvents :: Ptr ASensorEventQueue -> Ptr ASensorEvent -> CSize -> IO CSSize
 
 engineHandleCmd :: Ptr AndroidEngine -> Int -> IO ()
 engineHandleCmd eng cmd
