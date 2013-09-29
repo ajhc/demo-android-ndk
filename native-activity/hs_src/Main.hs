@@ -16,7 +16,7 @@ androidMain app = do
   eng <- malloc
   poke eng defaultAndroidEngine
   apphs <- peek app
-  let apphs' = apphs { appUserData = eng, appOnAppCmd = p_engine_handle_cmd , appOnInputEvent = p_engine_handle_input }
+  let apphs' = apphs { appUserData = eng, appOnAppCmd = p_engineHandleCmd , appOnInputEvent = p_engineHandleInput }
   poke app apphs'
   enghs <- peek eng
   -- Prepare to monitor accelerometer

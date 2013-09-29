@@ -199,8 +199,10 @@ foreign import ccall "c_extern.h AInputEvent_getType" c_AInputEvent_getType :: P
 foreign import ccall "c_extern.h AMotionEvent_getX" c_AMotionEvent_getX :: Ptr AInputEvent -> CSize -> IO Float
 foreign import ccall "c_extern.h AMotionEvent_getY" c_AMotionEvent_getY :: Ptr AInputEvent -> CSize -> IO Float
 
-engineHandleInput :: Ptr AndroidEngine -> Ptr AInputEvent -> IO Int
-engineHandleInput eng event = do
+engineHandleInput :: Ptr AndroidApp -> Ptr AInputEvent -> IO Int
+engineHandleInput app event = do
+  apphs <- peek app
+  let eng = appUserData apphs
   t <- c_AInputEvent_getType event
   if t /= c_AINPUT_EVENT_TYPE_MOTION then return 0
     else do enghs <- peek eng
@@ -212,7 +214,8 @@ engineHandleInput eng event = do
             poke eng enghs'
             return 1
 
-foreign export ccall "engineHandleInput" engineHandleInput :: Ptr AndroidEngine -> Ptr AInputEvent -> IO Int
+foreign export ccall "engineHandleInput" engineHandleInput :: Ptr AndroidApp -> Ptr AInputEvent -> IO Int
+foreign import ccall "&engineHandleInput" p_engineHandleInput :: FunPtr (Ptr AndroidApp -> Ptr AInputEvent -> IO Int)
 
 
 type CSSize = Int
@@ -222,9 +225,6 @@ foreign import primitive "const.APP_CMD_TERM_WINDOW" c_APP_CMD_TERM_WINDOW :: In
 foreign import primitive "const.APP_CMD_GAINED_FOCUS" c_APP_CMD_GAINED_FOCUS :: Int
 foreign import primitive "const.APP_CMD_LOST_FOCUS" c_APP_CMD_LOST_FOCUS :: Int
 
-foreign import ccall "c_extern.h engine_init_display" c_engine_init_display :: Ptr AndroidEngine -> IO Int
-foreign import ccall "c_extern.h engine_draw_frame" c_engine_draw_frame :: Ptr AndroidEngine -> IO ()
-foreign import ccall "c_extern.h engine_term_display" c_engine_term_display :: Ptr AndroidEngine -> IO ()
 foreign import ccall "c_extern.h ASensorEventQueue_enableSensor" c_ASensorEventQueue_enableSensor :: Ptr ASensorEventQueue -> Ptr ASensor -> IO Int
 foreign import ccall "c_extern.h ASensorEventQueue_setEventRate" c_ASensorEventQueue_setEventRate :: Ptr ASensorEventQueue -> Ptr ASensor -> Int -> IO Int
 foreign import ccall "c_extern.h ANativeWindow_setBuffersGeometry" c_ANativeWindow_setBuffersGeometry :: Ptr ANativeWindow -> Int -> Int -> Int -> IO Int
@@ -235,8 +235,14 @@ foreign import ccall "c_extern.h ASensorManager_createEventQueue" c_ASensorManag
 foreign import ccall "c_extern.h ALooper_pollAll" c_ALooper_pollAll :: Int -> Ptr Int -> Ptr Int -> Ptr (Ptr ()) -> IO Int
 foreign import ccall "c_extern.h ASensorEventQueue_getEvents" c_ASensorEventQueue_getEvents :: Ptr ASensorEventQueue -> Ptr ASensorEvent -> CSize -> IO CSSize
 
-engineHandleCmd :: Ptr AndroidEngine -> Int -> IO ()
-engineHandleCmd eng cmd
+engineHandleCmd :: Ptr AndroidApp -> Int -> IO ()
+engineHandleCmd app cmd = do
+  apphs <- peek app
+  let eng = appUserData apphs
+  engineHandleCmd' eng cmd
+
+engineHandleCmd' :: Ptr AndroidEngine -> Int -> IO ()
+engineHandleCmd' eng cmd
   | cmd == c_APP_CMD_SAVE_STATE = do enghs <- peek eng
                                      let app = engApp enghs
                                      apphs <- peek app
@@ -249,9 +255,9 @@ engineHandleCmd eng cmd
                                       let app = engApp enghs
                                       apphs <- peek app
                                       when (appWindow apphs /= nullPtr) $ do
-                                        c_engine_init_display eng
-                                        c_engine_draw_frame eng
-  | cmd == c_APP_CMD_TERM_WINDOW = c_engine_term_display eng
+                                        engineInitDisplay eng
+                                        engineDrawFrame eng
+  | cmd == c_APP_CMD_TERM_WINDOW = engineTermDisplay eng
   | cmd == c_APP_CMD_GAINED_FOCUS = do enghs <- peek eng
                                        when (engAccelerometerSensor enghs /= nullPtr) $ do
                                          c_ASensorEventQueue_enableSensor (engSensorEventQueue enghs) (engAccelerometerSensor enghs)
@@ -263,10 +269,11 @@ engineHandleCmd eng cmd
                                        return ()
                                      let enghs' = enghs { engAnimating = 0 }
                                      poke eng enghs'
-                                     c_engine_draw_frame eng
-engineHandleCmd _ _ = return ()
+                                     engineDrawFrame eng
+engineHandleCmd' _ _ = return ()
 
-foreign export ccall "engineHandleCmd" engineHandleCmd :: Ptr AndroidEngine -> Int -> IO ()
+foreign export ccall "engineHandleCmd" engineHandleCmd :: Ptr AndroidApp -> Int -> IO ()
+foreign import ccall "&engineHandleCmd" p_engineHandleCmd :: FunPtr (Ptr AndroidApp -> Int -> IO ())
 
 
 -- EGL
@@ -308,6 +315,7 @@ foreign import ccall "c_extern.h eglDestroyContext" c_eglDestroyContext :: EGLDi
 foreign import ccall "c_extern.h eglDestroySurface" c_eglDestroySurface :: EGLDisplay -> EGLSurface -> IO Word32
 foreign import ccall "c_extern.h eglTerminate" c_eglTerminate :: EGLDisplay -> IO Word32
 
+-- Tear down the EGL context currently associated with the display.
 engineTermDisplay :: Ptr AndroidEngine -> IO ()
 engineTermDisplay eng = peek eng >>= go >>= poke eng
   where go :: AndroidEngine -> IO AndroidEngine
@@ -344,6 +352,7 @@ foreign import primitive "const.GL_SMOOTH" c_GL_SMOOTH :: GLenum
 foreign import primitive "const.GL_DEPTH_TEST" c_GL_DEPTH_TEST :: GLenum
 foreign import primitive "const.GL_COLOR_BUFFER_BIT" c_GL_COLOR_BUFFER_BIT :: Word32
 
+-- Just the current frame in the display.
 engineDrawFrame :: Ptr AndroidEngine -> IO ()
 engineDrawFrame eng = peek eng >>= go
   where go :: AndroidEngine -> IO ()
@@ -364,6 +373,7 @@ engineDrawFrame eng = peek eng >>= go
 foreign export ccall "engineDrawFrame" engineDrawFrame :: Ptr AndroidEngine -> IO ()
 
 
+-- Initialize an EGL context for the current display.
 engineInitDisplay :: Ptr AndroidEngine -> IO Int
 engineInitDisplay eng = peek eng >>= go >>= maybe (return (-1)) (\r -> poke eng r >> return 0)
   where go :: AndroidEngine -> IO (Maybe AndroidEngine)
@@ -405,9 +415,3 @@ engineInitDisplay eng = peek eng >>= go >>= maybe (return (-1)) (\r -> poke eng 
                                             , engState      = stat { sStateAngle = 0 } }
 
 foreign export ccall "engineInitDisplay" engineInitDisplay :: Ptr AndroidEngine -> IO Int
-
-
-foreign import ccall "&engine_handle_input" p_engine_handle_input ::
-  FunPtr (Ptr AndroidApp -> Ptr AInputEvent -> IO Int)
-foreign import ccall "&engine_handle_cmd" p_engine_handle_cmd ::
-  FunPtr (Ptr AndroidApp -> Int -> IO ())

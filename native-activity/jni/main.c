@@ -23,45 +23,19 @@
 #define LOGW(...) ((void)__android_log_print(ANDROID_LOG_WARN, "native-activity", __VA_ARGS__))
 
 /**
- * Initialize an EGL context for the current display.
- */
-extern int engineInitDisplay(struct engine* engine);
-int engine_init_display(struct engine* engine) {
-	return engineInitDisplay(engine);
-}
-
-/**
- * Just the current frame in the display.
- */
-extern void engineDrawFrame(struct engine* engine);
-void engine_draw_frame(struct engine* engine) {
-	engineDrawFrame(engine);
-}
-
-/**
- * Tear down the EGL context currently associated with the display.
- */
-extern void engineTermDisplay(struct engine* engine);
-void engine_term_display(struct engine* engine) {
-	engineTermDisplay(engine);
-}
-
-/**
  * Process the next input event.
  */
-extern int32_t engineHandleInput(struct engine* engine, AInputEvent* event);
+extern int32_t engineHandleInput(struct android_app* app, AInputEvent* event);
 int32_t engine_handle_input(struct android_app* app, AInputEvent* event) {
-    struct engine* engine = (struct engine*)app->userData;
-    return engineHandleInput(engine, event);
+    return engineHandleInput(app, event);
 }
 
 /**
  * Process the next main command.
  */
-extern void engineHandleCmd(struct engine* engine, int32_t cmd);
+extern void engineHandleCmd(struct android_app* app, int32_t cmd);
 void engine_handle_cmd(struct android_app* app, int32_t cmd) {
-    struct engine* engine = (struct engine*)app->userData;
-    engineHandleCmd(engine, cmd);
+    engineHandleCmd(app, cmd);
 }
 
 /**
@@ -71,17 +45,15 @@ void engine_handle_cmd(struct android_app* app, int32_t cmd) {
  */
 extern void androidMain(struct android_app* state);
 void android_main(struct android_app* state) {
-	// Make sure glue isn't stripped.
-	app_dummy();
+	app_dummy(); // Make sure glue isn't stripped.
 
-	{ // Init Haskell code.
-		int hsargc = 1;
-		char *hsargv = "q";
-		char **hsargvp = &hsargv;
+	// Init & run Haskell code.
+	int hsargc = 1;
+	char *hsargv = "q";
+	char **hsargvp = &hsargv;
 
-		hs_init(&hsargc, &hsargvp);
-		androidMain(state);
-		hs_exit();
-	}
+	hs_init(&hsargc, &hsargvp);
+	androidMain(state);
+	hs_exit();
 }
 //END_INCLUDE(all)
