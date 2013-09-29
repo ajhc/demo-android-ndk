@@ -58,9 +58,10 @@ pollEvents app eng events source = do
         let stat      = engState $ enghs'
             newAngle  = sStateAngle stat + 0.01
             newAngle' = if newAngle > 1 then 0 else newAngle
-        poke eng $ enghs' { engState = stat { sStateAngle = newAngle' } }
+            enghs''   = enghs' { engState = stat { sStateAngle = newAngle' } }
+        poke eng enghs''
         -- Drawing is throttled to the screen update rate, so there is no need to do timing here.
-        engineDrawFrame eng
+        engineDrawFrame enghs''
       return True
 
 pollEventWhile :: Ptr AndroidApp -> Ptr AndroidEngine -> Ptr Int -> Ptr (Ptr AndroidPollSource)  -> IO Bool

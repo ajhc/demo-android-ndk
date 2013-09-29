@@ -75,7 +75,7 @@ engineHandleCmd' eng cmd
                                       apphs <- peek app
                                       when (appWindow apphs /= nullPtr) $ do
                                         engineInitDisplay eng
-                                        engineDrawFrame eng
+                                        peek eng >>= engineDrawFrame
   | cmd == c_APP_CMD_TERM_WINDOW = engineTermDisplay eng
   | cmd == c_APP_CMD_GAINED_FOCUS = do enghs <- peek eng
                                        when (engAccelerometerSensor enghs /= nullPtr) $ do
@@ -87,8 +87,8 @@ engineHandleCmd' eng cmd
                                        c_ASensorEventQueue_disableSensor (engSensorEventQueue enghs) (engAccelerometerSensor enghs)
                                        return ()
                                      let enghs' = enghs { engAnimating = 0 }
+                                     engineDrawFrame enghs'
                                      poke eng enghs'
-                                     engineDrawFrame eng
 engineHandleCmd' _ _ = return ()
 
 
@@ -112,8 +112,8 @@ engineTermDisplay eng = peek eng >>= go >>= poke eng
 
 
 -- Just the current frame in the display.
-engineDrawFrame :: Ptr AndroidEngine -> IO ()
-engineDrawFrame eng = peek eng >>= go
+engineDrawFrame :: AndroidEngine -> IO ()
+engineDrawFrame = go
   where go :: AndroidEngine -> IO ()
         go enghs = do
           let disp  = engEglDisplay enghs
