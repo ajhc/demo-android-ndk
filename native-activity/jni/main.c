@@ -23,22 +23,6 @@
 #define LOGW(...) ((void)__android_log_print(ANDROID_LOG_WARN, "native-activity", __VA_ARGS__))
 
 /**
- * Process the next input event.
- */
-extern int32_t engineHandleInput(struct android_app* app, AInputEvent* event);
-int32_t engine_handle_input(struct android_app* app, AInputEvent* event) {
-    return engineHandleInput(app, event);
-}
-
-/**
- * Process the next main command.
- */
-extern void engineHandleCmd(struct android_app* app, int32_t cmd);
-void engine_handle_cmd(struct android_app* app, int32_t cmd) {
-    engineHandleCmd(app, cmd);
-}
-
-/**
  * This is the main entry point of a native application that is using
  * android_native_app_glue.  It runs in its own thread, with its own
  * event loop for receiving input events and doing other things.

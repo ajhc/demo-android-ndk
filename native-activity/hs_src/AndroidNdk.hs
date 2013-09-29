@@ -199,6 +199,7 @@ foreign import ccall "c_extern.h AInputEvent_getType" c_AInputEvent_getType :: P
 foreign import ccall "c_extern.h AMotionEvent_getX" c_AMotionEvent_getX :: Ptr AInputEvent -> CSize -> IO Float
 foreign import ccall "c_extern.h AMotionEvent_getY" c_AMotionEvent_getY :: Ptr AInputEvent -> CSize -> IO Float
 
+-- Process the next input event.
 engineHandleInput :: Ptr AndroidApp -> Ptr AInputEvent -> IO Int
 engineHandleInput app event = do
   apphs <- peek app
@@ -235,6 +236,7 @@ foreign import ccall "c_extern.h ASensorManager_createEventQueue" c_ASensorManag
 foreign import ccall "c_extern.h ALooper_pollAll" c_ALooper_pollAll :: Int -> Ptr Int -> Ptr Int -> Ptr (Ptr ()) -> IO Int
 foreign import ccall "c_extern.h ASensorEventQueue_getEvents" c_ASensorEventQueue_getEvents :: Ptr ASensorEventQueue -> Ptr ASensorEvent -> CSize -> IO CSSize
 
+-- Process the next main command.
 engineHandleCmd :: Ptr AndroidApp -> Int -> IO ()
 engineHandleCmd app cmd = do
   apphs <- peek app
