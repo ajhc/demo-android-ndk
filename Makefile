@@ -1,4 +1,4 @@
-SUBDIRS := native-activity
+SUBDIRS := native-activity cube
 LIBDIR  := lib
 
 all: libs demos
