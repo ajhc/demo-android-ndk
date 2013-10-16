@@ -1,4 +1,4 @@
-APPNAME = native-activity
+APPNAME = cube
 ANDROID_TARGET = android-10
 
 CDIR = jni

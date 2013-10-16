@@ -16,7 +16,7 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 
-LOCAL_MODULE    := native-activity
+LOCAL_MODULE    := cube
 LOCAL_SRC_FILES := main.c dummy4jhc.c \
 		   ../hs_build/rts/rts_support.c ../hs_build/rts/jhc_rts.c \
 		   ../hs_build/lib/lib_cbits.c ../hs_build/rts/gc_jgc.c \

@@ -6,3 +6,4 @@
 */proguard-project.txt
 */project.properties
 */hs_build/
+lib/*.hl
