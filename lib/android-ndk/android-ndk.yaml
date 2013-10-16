@@ -1,0 +1,9 @@
+Name: android-ndk
+Version: 0.1
+Hs-Source-Dirs: .
+Options: [ -fffi ]
+Exposed-Modules:
+        - AndroidNdk
+        - AndroidNdk.EGL
+        - AndroidNdk.OpenGLES
+        - AndroidNdk.Storable

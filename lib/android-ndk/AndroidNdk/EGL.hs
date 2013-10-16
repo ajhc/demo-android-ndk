@@ -1,5 +1,5 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
-module EGL where
+module AndroidNdk.EGL where
 import Foreign.Ptr
 
 type EGLint     = Int

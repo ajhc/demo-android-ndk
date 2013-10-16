@@ -1,5 +1,5 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
-module OpenGLES where
+module AndroidNdk.OpenGLES where
 import Data.Word
 
 type GLenum = Word32

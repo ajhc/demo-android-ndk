@@ -4,7 +4,7 @@ import Foreign.Storable
 import Foreign.Ptr
 import Foreign.C.Types
 
-import EGL
+import AndroidNdk.EGL
 
 -- struct saved_state
 foreign import primitive "const.sizeof(struct saved_state)" sizeOf_SavedState :: Int

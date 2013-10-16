@@ -1,8 +1,20 @@
 SUBDIRS := native-activity
+LIBDIR  := lib
 
-all clean:
+all: libs demos
+
+libs:
+	$(MAKE) -C ${LIBDIR}
+
+demos: libs
 	@for i in $(SUBDIRS); do \
-		$(MAKE) -C $$i $@; \
+		$(MAKE) -C $$i; \
 	done
+
+clean:
+	@for i in $(SUBDIRS); do \
+		$(MAKE) -C $$i clean; \
+	done
+	$(MAKE) -C ${LIBDIR} clean
 
 .PHONY: all clean $(SUBDIRS)

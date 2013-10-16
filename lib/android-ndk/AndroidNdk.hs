@@ -8,8 +8,8 @@ import Foreign.Ptr
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Array
 
-import EGL
-import OpenGLES
+import AndroidNdk.EGL
+import AndroidNdk.OpenGLES
 import AndroidNdk.Storable
 
 
