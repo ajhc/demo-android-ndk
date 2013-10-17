@@ -1,11 +1,14 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
 import Control.Monad
+import Data.Bits
 import Foreign.Ptr
 import Foreign.Storable
 import Foreign.Marshal.Alloc
 import Foreign.Marshal.Array
 
 import AndroidNdk
+
+import CubeVertices
 
 -- Dummy
 main :: IO ()
@@ -194,8 +197,16 @@ engineDrawFrame = go
               y     = fromIntegral $ sStateY s
               angle = sStateAngle s
           when (disp /= c_EGL_NO_DISPLAY) $ do
-            c_glClearColor (x/w) angle (y/h) 1.0
-            c_glClear c_GL_COLOR_BUFFER_BIT
+            c_glClear $ c_GL_COLOR_BUFFER_BIT .|. c_GL_DEPTH_BUFFER_BIT
+            withArray vertices $ \vp -> withArray colors $ \cp -> do -- xxx heavy
+              c_glEnableClientState c_GL_VERTEX_ARRAY
+              c_glEnableClientState c_GL_COLOR_ARRAY
+              c_glVertexPointer 3 c_GL_FLOAT 0 vp
+              c_glColorPointer 4 c_GL_FLOAT 0 cp
+              c_glRotatef 1.0 1.0 1.0 0.0
+              c_glDrawArrays c_GL_TRIANGLES 0 36
+              c_glDisableClientState c_GL_VERTEX_ARRAY
+              c_glDisableClientState c_GL_COLOR_ARRAY
             void $ c_eglSwapBuffers disp surf
 
 
@@ -231,7 +242,23 @@ engineInitDisplay eng = peek eng >>= go >>= maybe (return (-1)) (\r -> poke eng 
                       c_glHint       c_GL_PERSPECTIVE_CORRECTION_HINT c_GL_FASTEST
                       c_glEnable     c_GL_CULL_FACE
                       c_glShadeModel c_GL_SMOOTH
-                      c_glDisable    c_GL_DEPTH_TEST
+                      c_glClearColor 0.0 0.0 0.0 1.0
+                      c_glViewport 0 0 w h
+                      c_glMatrixMode c_GL_PROJECTION
+                      c_glLoadIdentity
+                      let nearClip = (- 2.0)
+                          farClip  = 2.0
+                          yFOV  = 75.0
+                          yMax = nearClip * tan (yFOV * pi / 360.0)
+                          aspect = fromIntegral w / fromIntegral h
+                          xMin = (-yMax) * aspect
+                          xMax = yMax * aspect
+                      c_glFrustumf xMin xMax (- yMax) yMax nearClip farClip
+                      if w > h then c_glScalef (fromIntegral h / fromIntegral w) 1.0 1.0
+                        else c_glScalef 1.0 (fromIntegral w / fromIntegral h) 1.0
+                      c_glMatrixMode c_GL_MODELVIEW
+                      c_glLoadIdentity
+
                       let stat = engState enghs
                       return . Just $ enghs { engEglDisplay = disp
                                             , engEglContext = cont
