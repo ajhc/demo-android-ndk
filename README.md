@@ -27,18 +27,18 @@ Unpack them and setting PATH for SDK/NDK.
 
 ### Install Ajhc
 
-    $ sudo apt-get install haskell-platform gcc make
+    $ sudo apt-get install haskell-platform gcc make m4
     $ cabal install ajhc
 
 ### Build
 
 Type "make".
 
-    $ cd demo-android-ndk/native-activity
+    $ cd demo-android-ndk
     $ make
-    $ file bin/native-activity-debug.apk
-    bin/native-activity-debug.apk: Java Jar file data (zip)
-
+    $ file */bin/*debug.apk
+    cube/bin/cube-debug.apk:                                 Java Jar file data (zip)
+    native-activity/bin/native-activity-debug.apk:           Java Jar file data (zip)
 
 
 ## How to install
@@ -51,9 +51,9 @@ Connect your PC and Android Phone using USB cable.
 
 The adb command find your phone. Then install the apk file.
 
-    $ sudo adb install -r bin/native-activity-debug.apk
+    $ sudo adb install -r cube/bin/cube-debug.apk
     956 KB/s (14555 bytes in 0.014s)
-            pkg: /data/local/tmp/native-activity-debug.apk
+            pkg: /data/local/tmp/cube-debug.apk
     Success
 
 And touch your Android Phone and run the application.
