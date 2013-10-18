@@ -117,10 +117,15 @@ engineHandleInput app event = do
             let stat = engState enghs
             x <- c_AMotionEvent_getX event 0
             y <- c_AMotionEvent_getY event 0
-            let enghs' = enghs { engAnimating = 1
+            act <- c_AKeyEvent_getAction event
+            let act' = act .&. c_AMOTION_EVENT_ACTION_MASK
+                enghs' = enghs { engAnimating = anim (engAnimating enghs) act'
                                , engState = stat { sStateX = truncate x,  sStateY = truncate y } }
             poke eng enghs'
             return 1
+  where anim old act | act == c_AMOTION_EVENT_ACTION_DOWN = 1
+                     | act == c_AMOTION_EVENT_ACTION_UP   = 0
+                     | otherwise                          = old
 
 -- Process the next main command.
 foreign export ccall "engineHandleCmd" engineHandleCmd :: Ptr AndroidApp -> Int -> IO ()

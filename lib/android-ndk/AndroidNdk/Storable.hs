@@ -192,6 +192,10 @@ instance Storable AndroidPollSource where
 
 newtype {-# CTYPE "AInputEvent" #-} AInputEvent = AInputEvent ()
 foreign import primitive "const.AINPUT_EVENT_TYPE_MOTION" c_AINPUT_EVENT_TYPE_MOTION :: Int
+foreign import primitive "const.AMOTION_EVENT_ACTION_MASK" c_AMOTION_EVENT_ACTION_MASK :: Int
+foreign import primitive "const.AMOTION_EVENT_ACTION_DOWN" c_AMOTION_EVENT_ACTION_DOWN :: Int
+foreign import primitive "const.AMOTION_EVENT_ACTION_UP" c_AMOTION_EVENT_ACTION_UP :: Int
 foreign import ccall "c_extern.h AInputEvent_getType" c_AInputEvent_getType :: Ptr AInputEvent -> IO Int
 foreign import ccall "c_extern.h AMotionEvent_getX" c_AMotionEvent_getX :: Ptr AInputEvent -> CSize -> IO Float
 foreign import ccall "c_extern.h AMotionEvent_getY" c_AMotionEvent_getY :: Ptr AInputEvent -> CSize -> IO Float
+foreign import ccall "c_extern.h AKeyEvent_getAction" c_AKeyEvent_getAction :: Ptr AInputEvent -> IO Int
