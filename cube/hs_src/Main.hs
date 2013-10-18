@@ -115,17 +115,18 @@ engineHandleInput app event = do
   if t /= c_AINPUT_EVENT_TYPE_MOTION then return 0
     else do enghs <- peek eng
             let stat = engState enghs
+                ox = fromIntegral $ sStateX stat
+                oy = fromIntegral $ sStateY stat
             x <- c_AMotionEvent_getX event 0
             y <- c_AMotionEvent_getY event 0
             act <- c_AKeyEvent_getAction event
             let act' = act .&. c_AMOTION_EVENT_ACTION_MASK
-                enghs' = enghs { engAnimating = anim (engAnimating enghs) act'
-                               , engState = stat { sStateX = truncate x,  sStateY = truncate y } }
+                x' = if act' == c_AMOTION_EVENT_ACTION_DOWN then x else x - ox
+                y' = if act' == c_AMOTION_EVENT_ACTION_DOWN then y else y - oy
+                enghs' = enghs { engAnimating = 1
+                               , engState = stat { sStateX = truncate x',  sStateY = truncate y' } }
             poke eng enghs'
             return 1
-  where anim old act | act == c_AMOTION_EVENT_ACTION_DOWN = 1
-                     | act == c_AMOTION_EVENT_ACTION_UP   = 0
-                     | otherwise                          = old
 
 -- Process the next main command.
 foreign export ccall "engineHandleCmd" engineHandleCmd :: Ptr AndroidApp -> Int -> IO ()
@@ -208,7 +209,7 @@ engineDrawFrame = go
               c_glEnableClientState c_GL_COLOR_ARRAY
               c_glVertexPointer 3 c_GL_FLOAT 0 vp
               c_glColorPointer 4 c_GL_FLOAT 0 cp
-              c_glRotatef 1.0 1.0 1.0 0.0
+              c_glRotatef ((sqrt (x ** 2 + y ** 2)) / 500.0) (- y) x 0.0
               c_glDrawArrays c_GL_TRIANGLES 0 36
               c_glDisableClientState c_GL_VERTEX_ARRAY
               c_glDisableClientState c_GL_COLOR_ARRAY
