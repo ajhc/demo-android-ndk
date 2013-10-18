@@ -11,10 +11,14 @@ foreign import primitive "const.sizeof(struct saved_state)" sizeOf_SavedState ::
 foreign import primitive "const.offsetof(struct saved_state, angle)" offsetOf_SavedState_angle :: Int
 foreign import primitive "const.offsetof(struct saved_state, x)" offsetOf_SavedState_x :: Int
 foreign import primitive "const.offsetof(struct saved_state, y)" offsetOf_SavedState_y :: Int
+foreign import primitive "const.offsetof(struct saved_state, dx)" offsetOf_SavedState_dx :: Int
+foreign import primitive "const.offsetof(struct saved_state, dy)" offsetOf_SavedState_dy :: Int
 
 data SavedState = SavedState { sStateAngle :: Float
                              , sStateX     :: Int
-                             , sStateY     :: Int }
+                             , sStateY     :: Int
+                             , sStateDx    :: Int
+                             , sStateDy    :: Int }
 instance Storable SavedState where
   sizeOf    = const sizeOf_SavedState
   alignment = sizeOf
@@ -22,11 +26,15 @@ instance Storable SavedState where
     pokeByteOff p offsetOf_SavedState_angle $ sStateAngle sstat
     pokeByteOff p offsetOf_SavedState_x     $ sStateX sstat
     pokeByteOff p offsetOf_SavedState_y     $ sStateY sstat
+    pokeByteOff p offsetOf_SavedState_dx    $ sStateDx sstat
+    pokeByteOff p offsetOf_SavedState_dy    $ sStateDy sstat
   peek p = do
     angle <- peekByteOff p offsetOf_SavedState_angle
     x     <- peekByteOff p offsetOf_SavedState_x
     y     <- peekByteOff p offsetOf_SavedState_y
-    return $ SavedState { sStateAngle = angle, sStateX = x, sStateY = y }
+    dx    <- peekByteOff p offsetOf_SavedState_dx
+    dy    <- peekByteOff p offsetOf_SavedState_dy
+    return $ SavedState { sStateAngle = angle, sStateX = x, sStateY = y, sStateDx = dx, sStateDy = dy }
 
 -- struct engine
 foreign import primitive "const.sizeof(struct engine)" sizeOf_Engine :: Int
@@ -117,7 +125,9 @@ defaultAndroidEngine = AndroidEngine { engApp                 = nullPtr
                                      , engHeight              = 0
                                      , engState               = SavedState { sStateAngle = 0
                                                                            , sStateX     = 0
-                                                                           , sStateY     = 0 }
+                                                                           , sStateY     = 0
+                                                                           , sStateDx    = 0
+                                                                           , sStateDy    = 0 }
                                      , engEglDisplay          = nullPtr
                                      , engEglSurface          = nullPtr
                                      , engEglContext          = nullPtr }

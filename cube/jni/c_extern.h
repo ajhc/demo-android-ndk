@@ -18,6 +18,8 @@ struct saved_state {
     float angle;
     int32_t x;
     int32_t y;
+    int32_t dx;
+    int32_t dy;
 };
 
 /**
