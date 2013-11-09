@@ -11,10 +11,14 @@ demos: libs
 		$(MAKE) -C $$i; \
 	done
 
-clean:
+install: all
 	@for i in $(SUBDIRS); do \
+		$(MAKE) -C $$i install; \
+	done
+
+clean:
+	@for i in $(SUBDIRS) ${LIBDIR}; do \
 		$(MAKE) -C $$i clean; \
 	done
-	$(MAKE) -C ${LIBDIR} clean
 
 .PHONY: all clean $(SUBDIRS)
