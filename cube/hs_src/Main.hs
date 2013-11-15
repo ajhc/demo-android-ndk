@@ -12,19 +12,18 @@ import CubeVertices
 -- some magic
 androidActs :: AndroidNdkActs
 androidActs = AndroidNdkActs { drawFrame = engineDrawFrame
-                             , fpHandleInput = p_engineHandleInput
-                             , fpHandleCmd = p_engineHandleCmd
+                             , initDisplay = engineInitDisplay
                              , handleInput = eHandleInput
                              , handleCmd = eHandleCmd }
 
-foreign export ccall "engineHandleInput" engineHandleInput :: Ptr AndroidApp -> Ptr AInputEvent -> IO Int
-foreign import ccall "&engineHandleInput" p_engineHandleInput :: FunPtr (Ptr AndroidApp -> Ptr AInputEvent -> IO Int)
-engineHandleInput :: Ptr AndroidApp -> Ptr AInputEvent -> IO Int
+foreign export ccall "engineHandleInput" engineHandleInput :: FuncHandleInput
+foreign import ccall "&engineHandleInput" p_engineHandleInput :: FunPtr FuncHandleInput
+engineHandleInput :: FuncHandleInput
 engineHandleInput = handleInputHs androidActs
 
-foreign export ccall "engineHandleCmd" engineHandleCmd :: Ptr AndroidApp -> Int -> IO ()
-foreign import ccall "&engineHandleCmd" p_engineHandleCmd :: FunPtr (Ptr AndroidApp -> Int -> IO ())
-engineHandleCmd :: Ptr AndroidApp -> Int -> IO ()
+foreign export ccall "engineHandleCmd" engineHandleCmd :: FuncHandleCmd
+foreign import ccall "&engineHandleCmd" p_engineHandleCmd :: FunPtr FuncHandleCmd
+engineHandleCmd :: FuncHandleCmd
 engineHandleCmd = handleCmdHs androidActs
 
 -- Dummy main
@@ -33,7 +32,7 @@ main = return ()
 -- True main
 foreign export ccall "androidMain" androidMain :: Ptr AndroidApp -> IO ()
 androidMain :: Ptr AndroidApp -> IO ()
-androidMain = androidMainHs androidActs
+androidMain = androidMainHs androidActs p_engineHandleInput p_engineHandleCmd
 
 -- Process the next input event.
 eHandleInput :: AndroidEngine -> AInputEventType -> AMotionEventAction -> (Float, Float) -> IO (Maybe AndroidEngine)
@@ -59,7 +58,7 @@ eHandleCmd (app, eng) = go
           return (Just $ app { appSavedState = sstat
                              , appSavedStateSize = toEnum $ sizeOf $ engState eng }, Nothing)
         go AAppCmdInitWindow | appWindow app /= nullPtr = do
-          (Just eng') <- engineInitDisplay eng
+          (Just eng') <- initDisplayHs androidActs eng
           engineDrawFrame eng'
           return (Nothing, Just eng')
         go AAppCmdTermWindow = do
@@ -102,56 +101,24 @@ engineDrawFrame enghs = do
     void $ c_eglSwapBuffers disp surf
 
 -- Initialize an EGL context for the current display.
-engineInitDisplay :: AndroidEngine -> IO (Maybe AndroidEngine)
-engineInitDisplay enghs = do
-  disp <- c_eglGetDisplay c_EGL_DEFAULT_DISPLAY
-  c_eglInitialize disp nullPtr nullPtr
-  let attribsHs = [ c_EGL_SURFACE_TYPE, c_EGL_WINDOW_BIT,
-                    c_EGL_BLUE_SIZE,  8,
-                    c_EGL_GREEN_SIZE, 8,
-                    c_EGL_RED_SIZE,   8,
-                    c_EGL_NONE ]
-  alloca $ \config_p -> alloca $ \numConfigs_p -> alloca $ \format_p -> withArray attribsHs $ \attribs -> do
-    c_eglChooseConfig disp attribs config_p 1 numConfigs_p
-    config <- peek config_p
-    c_eglGetConfigAttrib disp config c_EGL_NATIVE_VISUAL_ID format_p
-    format <- peek format_p
-    apphs <- peek $ engApp enghs
-    let win = appWindow apphs
-    c_ANativeWindow_setBuffersGeometry win 0 0 format
-    surf <- c_eglCreateWindowSurface disp config (castPtr win) nullPtr
-    cont <- c_eglCreateContext disp config nullPtr nullPtr
-    b <- c_eglMakeCurrent disp surf surf cont
-    if b == c_EGL_FALSE then return Nothing
-      else alloca $ \w_p -> alloca $ \h_p -> do
-              c_eglQuerySurface disp surf c_EGL_WIDTH w_p
-              c_eglQuerySurface disp surf c_EGL_HEIGHT h_p
-              w <- peek w_p
-              h <- peek h_p
-              c_glHint       c_GL_PERSPECTIVE_CORRECTION_HINT c_GL_FASTEST
-              c_glEnable     c_GL_CULL_FACE
-              c_glShadeModel c_GL_SMOOTH
-              c_glClearColor 0.0 0.0 0.0 1.0
-              c_glViewport 0 0 w h
-              c_glMatrixMode c_GL_PROJECTION
-              c_glLoadIdentity
-              let nearClip = (- 2.0)
-                  farClip  = 2.0
-                  yFOV  = 75.0
-                  yMax = nearClip * tan (yFOV * pi / 360.0)
-                  aspect = fromIntegral w / fromIntegral h
-                  xMin = (-yMax) * aspect
-                  xMax = yMax * aspect
-              c_glFrustumf xMin xMax (- yMax) yMax nearClip farClip
-              if w > h then c_glScalef (fromIntegral h / fromIntegral w) 1.0 1.0
-                else c_glScalef 1.0 (fromIntegral w / fromIntegral h) 1.0
-              c_glMatrixMode c_GL_MODELVIEW
-              c_glLoadIdentity
-
-              let stat = engState enghs
-              return . Just $ enghs { engEglDisplay = disp
-                                    , engEglContext = cont
-                                    , engEglSurface = surf
-                                    , engWidth      = w
-                                    , engHeight     = h
-                                    , engState      = stat { sStateAngle = 0 } }
+engineInitDisplay :: (GLint, GLint) -> IO ()
+engineInitDisplay (w, h) = do
+  c_glHint       c_GL_PERSPECTIVE_CORRECTION_HINT c_GL_FASTEST
+  c_glEnable     c_GL_CULL_FACE
+  c_glShadeModel c_GL_SMOOTH
+  c_glClearColor 0.0 0.0 0.0 1.0
+  c_glViewport 0 0 w h
+  c_glMatrixMode c_GL_PROJECTION
+  c_glLoadIdentity
+  let nearClip = (- 2.0)
+      farClip  = 2.0
+      yFOV  = 75.0
+      yMax = nearClip * tan (yFOV * pi / 360.0)
+      aspect = fromIntegral w / fromIntegral h
+      xMin = (-yMax) * aspect
+      xMax = yMax * aspect
+  c_glFrustumf xMin xMax (- yMax) yMax nearClip farClip
+  if w > h then c_glScalef (fromIntegral h / fromIntegral w) 1.0 1.0
+    else c_glScalef 1.0 (fromIntegral w / fromIntegral h) 1.0
+  c_glMatrixMode c_GL_MODELVIEW
+  c_glLoadIdentity

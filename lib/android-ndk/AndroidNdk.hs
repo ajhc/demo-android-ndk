@@ -6,11 +6,11 @@ import Foreign.Storable
 import Foreign.C.Types
 import Foreign.Ptr
 import Foreign.Marshal.Alloc
+import Foreign.Marshal.Array
 
 import AndroidNdk.EGL
 import AndroidNdk.OpenGLES
 import AndroidNdk.Storable
-
 
 type CSSize = Int
 foreign import primitive "const.APP_CMD_INPUT_CHANGED" c_APP_CMD_INPUT_CHANGED :: Int
@@ -59,23 +59,25 @@ foreign import ccall "c_extern.h ASensorManager_createEventQueue" c_ASensorManag
 foreign import ccall "c_extern.h ALooper_pollAll" c_ALooper_pollAll :: Int -> Ptr Int -> Ptr Int -> Ptr (Ptr ()) -> IO Int
 foreign import ccall "c_extern.h ASensorEventQueue_getEvents" c_ASensorEventQueue_getEvents :: Ptr ASensorEventQueue -> Ptr ASensorEvent -> CSize -> IO CSSize
 
-data AndroidNdkActs = AndroidNdkActs { drawFrame :: AndroidEngine -> IO ()
-                                     , fpHandleInput :: FunPtr (Ptr AndroidApp -> Ptr AInputEvent -> IO Int)
-                                     , fpHandleCmd :: FunPtr (Ptr AndroidApp -> Int -> IO ())
-                                     , handleInput :: AndroidEngine -> AInputEventType -> AMotionEventAction -> (Float, Float) -> IO (Maybe AndroidEngine)
-                                     , handleCmd :: (AndroidApp, AndroidEngine) -> AAppCmd -> IO (Maybe AndroidApp, Maybe AndroidEngine)
-                                     }
+type FuncHandleInput = Ptr AndroidApp -> Ptr AInputEvent -> IO Int
+type FuncHandleCmd = Ptr AndroidApp -> Int -> IO ()
+
+data AndroidNdkActs =
+  AndroidNdkActs { drawFrame :: AndroidEngine -> IO ()
+                 , initDisplay :: (GLint, GLint) -> IO ()
+                 , handleInput :: AndroidEngine -> AInputEventType -> AMotionEventAction -> (Float, Float) -> IO (Maybe AndroidEngine)
+                 , handleCmd :: (AndroidApp, AndroidEngine) -> AAppCmd -> IO (Maybe AndroidApp, Maybe AndroidEngine) }
 
 while :: IO Bool -> IO ()
 while f = do r <- f
              when r $ while f
 
-androidMainHs :: AndroidNdkActs -> Ptr AndroidApp -> IO ()
-androidMainHs acts app = do
+androidMainHs :: AndroidNdkActs -> FunPtr FuncHandleInput -> FunPtr FuncHandleCmd -> Ptr AndroidApp -> IO ()
+androidMainHs acts funI funC app = do
   eng <- malloc
   poke eng defaultAndroidEngine
   apphs <- peek app
-  let apphs' = apphs { appUserData = eng, appOnAppCmd = fpHandleCmd acts, appOnInputEvent = fpHandleInput acts }
+  let apphs' = apphs { appUserData = eng, appOnAppCmd = funC, appOnInputEvent = funI }
   poke app apphs'
   enghs <- peek eng
   -- Prepare to monitor accelerometer
@@ -194,3 +196,38 @@ handleCmdHs acts app cmd = do
       pokeE (Just enghs') = poke eng enghs'
   pokeA ra
   pokeE re
+
+initDisplayHs :: AndroidNdkActs -> AndroidEngine -> IO (Maybe AndroidEngine)
+initDisplayHs acts enghs = do
+  disp <- c_eglGetDisplay c_EGL_DEFAULT_DISPLAY
+  c_eglInitialize disp nullPtr nullPtr
+  let attribsHs = [ c_EGL_SURFACE_TYPE, c_EGL_WINDOW_BIT,
+                    c_EGL_BLUE_SIZE,  8,
+                    c_EGL_GREEN_SIZE, 8,
+                    c_EGL_RED_SIZE,   8,
+                    c_EGL_NONE ]
+  alloca $ \config_p -> alloca $ \numConfigs_p -> alloca $ \format_p -> withArray attribsHs $ \attribs -> do
+    c_eglChooseConfig disp attribs config_p 1 numConfigs_p
+    config <- peek config_p
+    c_eglGetConfigAttrib disp config c_EGL_NATIVE_VISUAL_ID format_p
+    format <- peek format_p
+    apphs <- peek $ engApp enghs
+    let win = appWindow apphs
+    c_ANativeWindow_setBuffersGeometry win 0 0 format
+    surf <- c_eglCreateWindowSurface disp config (castPtr win) nullPtr
+    cont <- c_eglCreateContext disp config nullPtr nullPtr
+    b <- c_eglMakeCurrent disp surf surf cont
+    if b == c_EGL_FALSE then return Nothing
+      else alloca $ \w_p -> alloca $ \h_p -> do
+        c_eglQuerySurface disp surf c_EGL_WIDTH w_p
+        c_eglQuerySurface disp surf c_EGL_HEIGHT h_p
+        w <- peek w_p
+        h <- peek h_p
+        initDisplay acts (w, h)
+        let stat = engState enghs
+        return . Just $ enghs { engEglDisplay = disp
+                              , engEglContext = cont
+                              , engEglSurface = surf
+                              , engWidth      = w
+                              , engHeight     = h
+                              , engState      = stat { sStateAngle = 0 } }
