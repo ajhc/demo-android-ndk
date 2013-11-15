@@ -29,11 +29,41 @@ foreign import ccall "c_extern.h ASensorManager_createEventQueue" c_ASensorManag
 foreign import ccall "c_extern.h ALooper_pollAll" c_ALooper_pollAll :: Int -> Ptr Int -> Ptr Int -> Ptr (Ptr ()) -> IO Int
 foreign import ccall "c_extern.h ASensorEventQueue_getEvents" c_ASensorEventQueue_getEvents :: Ptr ASensorEventQueue -> Ptr ASensorEvent -> CSize -> IO CSSize
 
-data AndroidNdkActs = AndroidNdkActs { drawFrame :: AndroidEngine -> IO () }
+data AndroidNdkActs = AndroidNdkActs { drawFrame :: AndroidEngine -> IO ()
+                                     , fpHandleInput :: FunPtr (Ptr AndroidApp -> Ptr AInputEvent -> IO Int)
+                                     , fpHandleCmd :: FunPtr (Ptr AndroidApp -> Int -> IO ()) }
 
 while :: IO Bool -> IO ()
 while f = do r <- f
              when r $ while f
+
+androidMainHs :: AndroidNdkActs -> Ptr AndroidApp -> IO ()
+androidMainHs acts app = do
+  eng <- malloc
+  poke eng defaultAndroidEngine
+  apphs <- peek app
+  let apphs' = apphs { appUserData = eng, appOnAppCmd = fpHandleCmd acts, appOnInputEvent = fpHandleInput acts }
+  poke app apphs'
+  enghs <- peek eng
+  -- Prepare to monitor accelerometer
+  sManage <- c_ASensorManager_getInstance
+  accel <- c_ASensorManager_getDefaultSensor sManage c_ASENSOR_TYPE_ACCELEROMETER
+  let looper = appLooper apphs'
+  sEvent <- c_ASensorManager_createEventQueue sManage looper c_LOOPER_ID_USER nullPtr nullPtr
+  poke eng $ enghs { engApp = app
+                   , engSensorManager = sManage
+                   , engAccelerometerSensor = accel
+                   , engSensorEventQueue = sEvent }
+  let ss_p = appSavedState apphs'
+  when (ss_p /= nullPtr) $ do
+    ss <- peek ss_p
+    peek eng >>= (\e -> return $ e {engState = ss}) >>= poke eng
+  -- loop waiting for stuff to do.
+  -- Read all pending events.
+  events <- malloc
+  source <- malloc
+  while $ pollEvents acts app eng events source
+
 
 -- Read all pending events.
 -- If not animating, we will block forever waiting for events.
