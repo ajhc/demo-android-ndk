@@ -14,32 +14,27 @@ main = return ()
 androidActs :: AndroidNdkActs
 androidActs = AndroidNdkActs { drawFrame = engineDrawFrame
                              , fpHandleInput = p_engineHandleInput
-                             , fpHandleCmd = p_engineHandleCmd }
+                             , fpHandleCmd = p_engineHandleCmd
+                             , handleInput = eHandleInput }
 
 -- True main
 foreign export ccall "androidMain" androidMain :: Ptr AndroidApp -> IO ()
 androidMain :: Ptr AndroidApp -> IO ()
 androidMain = androidMainHs androidActs
 
-
 -- Process the next input event.
 foreign export ccall "engineHandleInput" engineHandleInput :: Ptr AndroidApp -> Ptr AInputEvent -> IO Int
 foreign import ccall "&engineHandleInput" p_engineHandleInput :: FunPtr (Ptr AndroidApp -> Ptr AInputEvent -> IO Int)
-
 engineHandleInput :: Ptr AndroidApp -> Ptr AInputEvent -> IO Int
-engineHandleInput app event = do
-  apphs <- peek app
-  let eng = appUserData apphs
-  t <- c_AInputEvent_getType event
-  if t /= c_AINPUT_EVENT_TYPE_MOTION then return 0
-    else do enghs <- peek eng
-            let stat = engState enghs
-            x <- c_AMotionEvent_getX event 0
-            y <- c_AMotionEvent_getY event 0
-            let enghs' = enghs { engAnimating = 1
-                               , engState = stat { sStateX = truncate x,  sStateY = truncate y } }
-            poke eng enghs'
-            return 1
+engineHandleInput = handleInputHs androidActs
+
+eHandleInput :: AndroidEngine -> AInputEventType -> AMotionEventAction -> (Float, Float) -> IO (Maybe AndroidEngine)
+eHandleInput eng = go
+  where go AInputEventTypeMotion _ (x, y) = do
+          let stat = engState eng
+          return (Just $ eng { engAnimating = 1
+                             , engState = stat { sStateX = truncate x,  sStateY = truncate y } })
+        go _ _ _ = return Nothing
 
 -- Process the next main command.
 foreign export ccall "engineHandleCmd" engineHandleCmd :: Ptr AndroidApp -> Int -> IO ()

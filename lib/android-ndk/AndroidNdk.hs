@@ -31,7 +31,8 @@ foreign import ccall "c_extern.h ASensorEventQueue_getEvents" c_ASensorEventQueu
 
 data AndroidNdkActs = AndroidNdkActs { drawFrame :: AndroidEngine -> IO ()
                                      , fpHandleInput :: FunPtr (Ptr AndroidApp -> Ptr AInputEvent -> IO Int)
-                                     , fpHandleCmd :: FunPtr (Ptr AndroidApp -> Int -> IO ()) }
+                                     , fpHandleCmd :: FunPtr (Ptr AndroidApp -> Int -> IO ())
+                                     , handleInput :: AndroidEngine -> AInputEventType -> AMotionEventAction -> (Float, Float) -> IO (Maybe AndroidEngine) }
 
 while :: IO Bool -> IO ()
 while f = do r <- f
@@ -135,3 +136,17 @@ engineTermDisplay eng = peek eng >>= go >>= poke eng
                          , engEglDisplay = c_EGL_NO_DISPLAY
                          , engEglSurface = c_EGL_NO_SURFACE
                          , engEglContext = c_EGL_NO_CONTEXT }
+
+handleInputHs :: AndroidNdkActs -> Ptr AndroidApp -> Ptr AInputEvent -> IO Int
+handleInputHs acts app event = do
+  apphs <- peek app
+  let eng = appUserData apphs
+  enghs <- peek eng
+  eType <- c_AInputEvent_getType event
+  eX <- c_AMotionEvent_getX event 0
+  eY <- c_AMotionEvent_getY event 0
+  eAct <- c_AKeyEvent_getAction event
+  r <- handleInput acts enghs (inputEventType eType) (motionEventAction eAct) (eX, eY)
+  let go Nothing = return 0
+      go (Just enghs') = poke eng enghs' >> return 1
+  go r

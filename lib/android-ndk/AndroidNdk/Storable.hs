@@ -1,5 +1,6 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
 module AndroidNdk.Storable where
+import Data.Bits
 import Foreign.Storable
 import Foreign.Ptr
 import Foreign.C.Types
@@ -200,11 +201,33 @@ instance Storable AndroidPollSource where
     process <- peekByteOff p offsetOf_AndroidPollSource_pollProcess
     return $ AndroidPollSource { pollProcess = process }
 
-newtype {-# CTYPE "AInputEvent" #-} AInputEvent = AInputEvent ()
+foreign import primitive "const.AINPUT_EVENT_TYPE_KEY" c_AINPUT_EVENT_TYPE_KEY :: Int
 foreign import primitive "const.AINPUT_EVENT_TYPE_MOTION" c_AINPUT_EVENT_TYPE_MOTION :: Int
+data AInputEventType = AInputEventTypeKey | AInputEventTypeMotion | AInputEventTypeFail
+                     deriving(Eq)
+inputEventType :: Int -> AInputEventType
+inputEventType e | e == c_AINPUT_EVENT_TYPE_KEY    = AInputEventTypeKey
+                 | e == c_AINPUT_EVENT_TYPE_MOTION = AInputEventTypeMotion
+                 | otherwise = AInputEventTypeFail
+
 foreign import primitive "const.AMOTION_EVENT_ACTION_MASK" c_AMOTION_EVENT_ACTION_MASK :: Int
 foreign import primitive "const.AMOTION_EVENT_ACTION_DOWN" c_AMOTION_EVENT_ACTION_DOWN :: Int
 foreign import primitive "const.AMOTION_EVENT_ACTION_UP" c_AMOTION_EVENT_ACTION_UP :: Int
+foreign import primitive "const.AMOTION_EVENT_ACTION_MOVE" c_AMOTION_EVENT_ACTION_MOVE :: Int
+foreign import primitive "const.AMOTION_EVENT_ACTION_CANCEL" c_AMOTION_EVENT_ACTION_CANCEL :: Int
+foreign import primitive "const.AMOTION_EVENT_ACTION_OUTSIDE" c_AMOTION_EVENT_ACTION_OUTSIDE :: Int
+data AMotionEventAction = AMotionEventActionDown | AMotionEventActionUp | AMotionEventActionMove | AMotionEventActionCancel | AMotionEventActionOutside | AMotionEventActionFail
+                        deriving(Eq)
+motionEventAction :: Int -> AMotionEventAction
+motionEventAction e
+  | e .&. c_AMOTION_EVENT_ACTION_MASK == c_AMOTION_EVENT_ACTION_DOWN = AMotionEventActionDown
+  | e .&. c_AMOTION_EVENT_ACTION_MASK == c_AMOTION_EVENT_ACTION_UP = AMotionEventActionUp
+  | e .&. c_AMOTION_EVENT_ACTION_MASK == c_AMOTION_EVENT_ACTION_MOVE = AMotionEventActionMove
+  | e .&. c_AMOTION_EVENT_ACTION_MASK == c_AMOTION_EVENT_ACTION_CANCEL = AMotionEventActionCancel
+  | e .&. c_AMOTION_EVENT_ACTION_MASK == c_AMOTION_EVENT_ACTION_OUTSIDE = AMotionEventActionOutside
+  | otherwise = AMotionEventActionFail
+
+newtype {-# CTYPE "AInputEvent" #-} AInputEvent = AInputEvent ()
 foreign import ccall "c_extern.h AInputEvent_getType" c_AInputEvent_getType :: Ptr AInputEvent -> IO Int
 foreign import ccall "c_extern.h AMotionEvent_getX" c_AMotionEvent_getX :: Ptr AInputEvent -> CSize -> IO Float
 foreign import ccall "c_extern.h AMotionEvent_getY" c_AMotionEvent_getY :: Ptr AInputEvent -> CSize -> IO Float
